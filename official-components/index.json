@@ -5,6 +5,11 @@
       "id": "wait-one-second",
       "name": "等待1秒",
       "description": "等待1秒的基础组件，可用于熟悉导入和组合动作。"
+    },
+    {
+      "id": "delta-force-single-1920",
+      "name": "三角洲单端1920分辨率",
+      "description": "单端1920分辨率流程，原始缩放125%。循环9999次，OCR数值小于464时执行后续点击、等待和Esc操作。"
     }
   ]
 }

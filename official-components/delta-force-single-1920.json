@@ -1,0 +1,317 @@
+{
+  "schemaVersion": 1,
+  "components": [
+    {
+      "block": {
+        "extraState": {
+          "branches": [{ "key": "0" }],
+          "step": {
+            "action": {
+              "name": "单端1920分辨率",
+              "steps": [],
+              "type": "group"
+            },
+            "delayMs": 0
+          }
+        },
+        "inputs": {
+          "BODY_0": {
+            "block": {
+              "extraState": {
+                "branches": [{ "key": "0" }],
+                "step": {
+                  "action": { "count": 9999, "type": "loop" },
+                  "delayMs": 0,
+                  "randomDelayMs": 0
+                },
+                "tail": {
+                  "action": { "type": "endLoop" },
+                  "delayMs": 0,
+                  "randomDelayMs": 0
+                }
+              },
+              "inputs": {
+                "BODY_0": {
+                  "block": {
+                    "extraState": {
+                      "step": {
+                        "action": {
+                          "target": "window:三角洲行动  ",
+                          "type": "focus"
+                        },
+                        "delayMs": 0,
+                        "randomDelayMs": 0
+                      }
+                    },
+                    "next": {
+                      "block": {
+                        "extraState": {
+                          "step": {
+                            "action": {
+                              "button": "left",
+                              "holdMs": 30,
+                              "jitter": 0,
+                              "mode": "foreground",
+                              "target": "window:三角洲行动  ",
+                              "type": "click",
+                              "x": 223,
+                              "y": 183
+                            },
+                            "delayMs": 0,
+                            "randomDelayMs": 0
+                          }
+                        },
+                        "next": {
+                          "block": {
+                            "extraState": {
+                              "step": {
+                                "action": {
+                                  "numbersOnly": true,
+                                  "ocrModel": "small",
+                                  "region": {
+                                    "height": 32,
+                                    "width": 52,
+                                    "x": 615,
+                                    "y": 336
+                                  },
+                                  "reuse": true,
+                                  "target": "window:三角洲行动  ",
+                                  "type": "ocr",
+                                  "variable": "result"
+                                },
+                                "delayMs": 0,
+                                "randomDelayMs": 0
+                              }
+                            },
+                            "next": {
+                              "block": {
+                                "extraState": {
+                                  "branches": [{ "key": "0" }],
+                                  "step": {
+                                    "action": {
+                                      "expression": "",
+                                      "type": "if"
+                                    },
+                                    "delayMs": 0,
+                                    "inputs": {
+                                      "schemaVersion": 1,
+                                      "values": {
+                                        "expression": {
+                                          "kind": "binary",
+                                          "left": {
+                                            "kind": "variable",
+                                            "name": "result",
+                                            "valueType": "number"
+                                          },
+                                          "op": "<",
+                                          "right": {
+                                            "kind": "literal",
+                                            "value": 464
+                                          }
+                                        }
+                                      }
+                                    },
+                                    "randomDelayMs": 0
+                                  },
+                                  "tail": {
+                                    "action": { "type": "endIf" },
+                                    "delayMs": 0,
+                                    "randomDelayMs": 0
+                                  }
+                                },
+                                "inputs": {
+                                  "BODY_0": {
+                                    "block": {
+                                      "extraState": {
+                                        "step": {
+                                          "action": {
+                                            "button": "left",
+                                            "holdMs": 30,
+                                            "jitter": 0,
+                                            "mode": "foreground",
+                                            "target": "window:三角洲行动  ",
+                                            "type": "click",
+                                            "x": 523,
+                                            "y": 312
+                                          },
+                                          "delayMs": 0,
+                                          "randomDelayMs": 0
+                                        }
+                                      },
+                                      "next": {
+                                        "block": {
+                                          "extraState": {
+                                            "step": {
+                                              "action": {
+                                                "ms": 800,
+                                                "type": "wait"
+                                              },
+                                              "delayMs": 0,
+                                              "randomDelayMs": 0
+                                            }
+                                          },
+                                          "inputs": {
+                                            "VALUE_seconds": {
+                                              "shadow": {
+                                                "extraState": {
+                                                  "value": {
+                                                    "kind": "literal",
+                                                    "value": 0.8
+                                                  }
+                                                },
+                                                "type": "moligod_value"
+                                              }
+                                            }
+                                          },
+                                          "next": {
+                                            "block": {
+                                              "extraState": {
+                                                "step": {
+                                                  "action": {
+                                                    "button": "left",
+                                                    "holdMs": 30,
+                                                    "jitter": 0,
+                                                    "mode": "foreground",
+                                                    "target": "window:三角洲行动  ",
+                                                    "type": "click",
+                                                    "x": 1197,
+                                                    "y": 847
+                                                  },
+                                                  "delayMs": 0,
+                                                  "randomDelayMs": 0
+                                                }
+                                              },
+                                              "next": {
+                                                "block": {
+                                                  "extraState": {
+                                                    "step": {
+                                                      "action": {
+                                                        "button": "left",
+                                                        "holdMs": 30,
+                                                        "jitter": 0,
+                                                        "mode": "foreground",
+                                                        "target": "window:三角洲行动  ",
+                                                        "type": "click",
+                                                        "x": 1220,
+                                                        "y": 916
+                                                      },
+                                                      "delayMs": 0,
+                                                      "randomDelayMs": 0
+                                                    }
+                                                  },
+                                                  "next": {
+                                                    "block": {
+                                                      "extraState": {
+                                                        "step": {
+                                                          "action": {
+                                                            "holdMs": 30,
+                                                            "keys": [27],
+                                                            "type": "key"
+                                                          },
+                                                          "delayMs": 0,
+                                                          "randomDelayMs": 0
+                                                        }
+                                                      },
+                                                      "type": "moligod_action"
+                                                    }
+                                                  },
+                                                  "type": "moligod_action"
+                                                }
+                                              },
+                                              "type": "moligod_action"
+                                            }
+                                          },
+                                          "type": "moligod_action"
+                                        }
+                                      },
+                                      "type": "moligod_action"
+                                    }
+                                  },
+                                  "VALUE_expression": {
+                                    "block": {
+                                      "extraState": {
+                                        "value": {
+                                          "kind": "binary",
+                                          "left": {
+                                            "kind": "variable",
+                                            "name": "result",
+                                            "valueType": "number"
+                                          },
+                                          "op": "<",
+                                          "right": {
+                                            "kind": "literal",
+                                            "value": 464
+                                          }
+                                        }
+                                      },
+                                      "inputs": {
+                                        "LEFT": {
+                                          "block": {
+                                            "extraState": {
+                                              "value": {
+                                                "kind": "variable",
+                                                "name": "result",
+                                                "valueType": "number"
+                                              }
+                                            },
+                                            "type": "moligod_value"
+                                          },
+                                          "shadow": {
+                                            "extraState": {
+                                              "value": {
+                                                "kind": "literal",
+                                                "value": 0
+                                              }
+                                            },
+                                            "type": "moligod_value"
+                                          }
+                                        },
+                                        "RIGHT": {
+                                          "shadow": {
+                                            "extraState": {
+                                              "value": {
+                                                "kind": "literal",
+                                                "value": 464
+                                              }
+                                            },
+                                            "type": "moligod_value"
+                                          }
+                                        }
+                                      },
+                                      "type": "moligod_value"
+                                    }
+                                  }
+                                },
+                                "type": "moligod_action"
+                              }
+                            },
+                            "type": "moligod_action"
+                          }
+                        },
+                        "type": "moligod_action"
+                      }
+                    },
+                    "type": "moligod_action"
+                  }
+                },
+                "VALUE_count": {
+                  "shadow": {
+                    "extraState": {
+                      "value": { "kind": "literal", "value": 9999 }
+                    },
+                    "type": "moligod_value"
+                  }
+                }
+              },
+              "type": "moligod_action"
+            }
+          }
+        },
+        "type": "moligod_action"
+      },
+      "id": "2bc501e1-11d2-4d92-9e3d-39d518cceb54",
+      "name": "三角洲单端1920分辨率",
+      "scale": 125
+    }
+  ]
+}
