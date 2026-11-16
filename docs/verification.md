@@ -7,7 +7,9 @@
 - 最终暂存OCR运行库的固定中英图片验证通过：CPU small/tiny、DirectML tiny及NVIDIA tiny均返回预期文本。结果位于target/toolbox-v2-ocr-*.jsonl。
 - 最终前端构建主资源252.0KiB/254KiB，按需796.6KiB/798KiB，桌面release构建1分17秒。主程序产品名MoligodToolBox，文件及产品版本2.0.0。完整依赖声明作为独立原生资源打包，未增加前端预算。
 - 317个源码候选文件通过隐私规则扫描；检出的邮箱只出现在供应商许可、第三方版权及图标文件名中。签名私钥与本机用户数据没有进入Git索引或安装资源。项目许可、限定例外、供应商许可及依赖声明均加入安装资源。
-- 当前正在完成NSIS压缩与签名，随后生成latest.json、SHA256SUMS.txt并公开Release。构建日志target/toolbox-v2-installer-final-build.log。GitHub Actions因账号账单锁定未启动；全仓库既有格式债务与真实跨版本安装、真实游戏验收不标为通过。
+- NSIS安装包及签名完成，安装包119578882字节，SHA-256为c39c463863a46002d2469782bb2453647a984d0ea6c4970741a9425dd85f14db。独立密码学验证接受原始安装包，拒绝修改后的内容及版本；模块哈希与清单、全部运行库库存核对通过。最终42个发布候选文件隐私扫描无命中。
+- v2.0.0于2026-11-16 16:01:20 UTC公开发布并设为Latest，标签对应源码a58c368。安装包、.sig、latest.json及SHA256SUMS.txt四个附件的GitHub服务端SHA-256均与本机一致。匿名访问latest API得到v2.0.0，公开latest.json HTTP200且文件哈希一致，安装包HEAD HTTP200且长度119578882。证据target/toolbox-v2-signature-verification.json、toolbox-v2-public-verification.json及release-privacy-report.json。
+- 构建日志target/toolbox-v2-installer-final-build.log。GitHub Actions因账号账单锁定未启动；全仓库既有格式债务、跨版本真实安装、安装/卸载及真实游戏验收不标为通过。
 
 # MoligodToolBox 仓库名称与上传准备 · 2026-11-16
 

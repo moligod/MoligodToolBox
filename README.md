@@ -4,6 +4,8 @@
 
 当前版本为 **2.0.0**，桌面客户端使用 Tauri 2、TypeScript 和 Rust，工具通过独立进程按需启动。关闭主窗口后可通过系统托盘重新打开或退出。
 
+[下载 v2.0.0 Windows x64 安装包](https://github.com/moligod/MoligodToolBox/releases/download/v2.0.0/MoligodToolBox_2.0.0_x64-setup.exe) · [发布说明](https://github.com/moligod/MoligodToolBox/releases/tag/v2.0.0)
+
 ## 许可与署名
 
 本项目第一方代码和文档采用 **GNU General Public License v3.0（GPL-3.0-only）**，允许使用、修改、商用和收费分发。对外分发基于本项目代码的衍生程序时，需要按 GPL-3.0 提供完整对应源码，并向接收者授予相同的使用、修改及再分发权利；后续修改版继续适用这些要求。分发时保留版权、许可和修改说明。[完整许可](LICENSE) · [版权声明](NOTICE)
@@ -73,7 +75,7 @@ OCR 准备脚本会在构建阶段下载原生库和模型，并校验固定 SHA
 npm run tauri build -- --no-bundle
 ```
 
-输出：`target/release/moligod.exe`，必须连同 `target/release/modules/` 分发。构建 NSIS 安装包用 `npm run tauri build`；签名更新工作流与发布步骤见 [官方组件与版本更新](docs/github-distribution.md)，首次签名 Release 尚未发布。
+输出：`target/release/moligod.exe`，必须连同 `target/release/modules/` 分发。构建 NSIS 安装包用 `npm run tauri build`；v2.0.0 已提供带更新签名的安装包，维护流程见 [官方组件与版本更新](docs/github-distribution.md)。
 
 ## 验证
 

@@ -43,4 +43,6 @@
 
 ## 当前验证边界
 
-源码已上传至正式 `MoligodToolBox` main 分支。官方组件目录与示例公开读取均返回HTTP200，示例内容与本机一致。GitHub Actions因账号账单锁定而未能启动，本轮通过本机构建准备v2.0.0签名安装包。GPU运行库采用经作者同意的限定链接例外并随包保留供应商许可；跨版本真实安装及游戏环境需另行验收。[第三方声明](../THIRD_PARTY_NOTICES.md)
+源码已上传至正式 `MoligodToolBox` main 分支。官方组件目录与示例公开读取均返回HTTP200，示例内容与本机一致。v2.0.0已公开发布并标记Latest，包含Windows x64安装包、签名、latest.json与SHA256SUMS.txt。四个GitHub附件的服务端SHA-256均与本机一致；公开更新清单及安装包地址HTTP200，更新清单内容一致。[v2.0.0](https://github.com/moligod/MoligodToolBox/releases/tag/v2.0.0)
+
+GitHub Actions因账号账单锁定而未能启动，本轮采用本机签名构建。GPU运行库采用经作者同意的限定链接例外并随包保留供应商许可；跨版本真实安装及游戏环境需另行验收。[第三方声明](../THIRD_PARTY_NOTICES.md)
