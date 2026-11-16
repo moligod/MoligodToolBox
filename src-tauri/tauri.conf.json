@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "moligod",
-  "version": "0.1.0",
+  "productName": "MoligodToolBox",
+  "version": "2.0.0",
   "identifier": "com.moligod.desktop",
   "build": {
     "beforeDevCommand": "npm run modules:dev && npm run dev",
@@ -28,7 +28,12 @@
   "bundle": {
     "active": true,
     "resources": {
-      "../bundled-modules/package/": "modules/"
+      "../bundled-modules/package/": "modules/",
+      "../LICENSE": "LICENSE.txt",
+      "../LICENSE-EXCEPTION": "LICENSE-EXCEPTION.txt",
+      "../NOTICE": "NOTICE.txt",
+      "../docs/licenses/DEPENDENCIES.txt": "THIRD_PARTY_LICENSES.txt",
+      "../THIRD_PARTY_NOTICES.md": "THIRD_PARTY_NOTICES.md"
     },
     "targets": ["nsis"],
     "icon": [

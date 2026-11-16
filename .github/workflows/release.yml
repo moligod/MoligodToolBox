@@ -3,8 +3,13 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing version tag, for example v0.2.0
+        description: Existing version tag, for example v2.0.0
         required: true
+        type: string
+      release_name:
+        description: Display name for the release
+        required: true
+        default: v2.0.0
         type: string
 permissions:
   contents: write
@@ -39,6 +44,9 @@ jobs:
       - name: Prepare build
         shell: pwsh
         run: |
+          "CARGO_HOME=$env:RUNNER_TEMP/moligod-cargo" >> $env:GITHUB_ENV
+          $flags = @("--remap-path-prefix=$env:GITHUB_WORKSPACE=/src/moligod-toolbox", "--remap-path-prefix=$env:USERPROFILE=/_build") -join [char]31
+          "CARGO_ENCODED_RUSTFLAGS=$flags" >> $env:GITHUB_ENV
           npm ci
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           ./scripts/prepare-ocr.ps1
@@ -49,9 +57,12 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ inputs.tag }}
-          releaseName: MoligodToolBox ${{ inputs.tag }}
+          releaseName: ${{ inputs.release_name }}
           releaseBody: See the attached installer and source tag for this release.
           releaseDraft: true
           prerelease: false
           includeUpdaterJson: true
-          args: --config '{"bundle":{"createUpdaterArtifacts":true}}'
+          args: --config '{"build":{"beforeBuildCommand":"npm run modules:build && npm run build"},"bundle":{"createUpdaterArtifacts":true}}'
+      - name: Check release privacy
+        shell: pwsh
+        run: node scripts/check-release-privacy.mjs

@@ -2,18 +2,20 @@
 
 面向 Windows 的本地游戏工具箱，提供自定义准星、可视化自动化、截图与离线 OCR。
 
-当前是 **0.1.0 开发版**，桌面客户端使用 Tauri 2、TypeScript 和 Rust，工具通过独立进程按需启动。关闭主窗口后可通过系统托盘重新打开或退出。
+当前版本为 **2.0.0**，桌面客户端使用 Tauri 2、TypeScript 和 Rust，工具通过独立进程按需启动。关闭主窗口后可通过系统托盘重新打开或退出。
 
 ## 许可与署名
 
 本项目第一方代码和文档采用 **GNU General Public License v3.0（GPL-3.0-only）**，允许使用、修改、商用和收费分发。对外分发基于本项目代码的衍生程序时，需要按 GPL-3.0 提供完整对应源码，并向接收者授予相同的使用、修改及再分发权利；后续修改版继续适用这些要求。分发时保留版权、许可和修改说明。[完整许可](LICENSE) · [版权声明](NOTICE)
+
+为保留显卡 OCR 加速，另附仅针对 Microsoft DirectML、NVIDIA TensorRT for RTX 及必需 CUDA Runtime 的链接例外。这些厂商运行库保持原有许可；项目自身代码及分发的修改版仍须按 GPL 提供对应源码。[限定链接例外](LICENSE-EXCEPTION)
 
 ```text
 MoligodToolBox — Copyright (c) 2026 moligod
 https://github.com/moligod/MoligodToolBox
 ```
 
-源码提供义务以对外分发为主要触发条件，个人或组织内部使用的修改可以保留内部使用。第三方组件适用各自许可，相关声明及二进制分发待核对项见第三方文档。[第三方声明](THIRD_PARTY_NOTICES.md)
+源码提供义务以对外分发为主要触发条件，个人或组织内部使用的修改可以保留内部使用。第三方组件适用各自许可，相关声明及供应商条款见第三方文档。[第三方声明](THIRD_PARTY_NOTICES.md)
 
 ## 当前可用
 

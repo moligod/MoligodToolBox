@@ -1,0 +1,32 @@
+[
+  {
+    "crate": "webview2-com-0.38.2",
+    "repository": "wravery/webview2-rs",
+    "revision": "b74dc5e2b394044bea5191052868ce7a106c202c"
+  },
+  {
+    "crate": "dlopen2-0.8.2",
+    "repository": "OpenByteDev/dlopen2",
+    "revision": "cc80e4a0a90d499b677fdf7743699b4b3a43a989"
+  },
+  {
+    "crate": "alloc-stdlib-0.2.4",
+    "repository": "dropbox/rust-alloc-no-stdlib",
+    "revision": "ae42d22078b98549e987d2f03d12df7b984fde47"
+  },
+  {
+    "crate": "selectors-0.36.1",
+    "repository": "servo/stylo",
+    "revision": "635e1a19d02960588a00e189bd4bd5bdb150ec3d"
+  },
+  {
+    "crate": "tauri-plugin-2.6.3",
+    "repository": "tauri-apps/tauri",
+    "revision": "6f6ab1207bb3923c2721fbc67d2fdb1c8deb0c7a"
+  },
+  {
+    "crate": "unic-common-0.9.0",
+    "repository": "open-i18n/rust-unic",
+    "revision": "5878605364af97a3358368a6eaef02104af2e016"
+  }
+]

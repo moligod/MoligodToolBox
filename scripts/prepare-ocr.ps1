@@ -62,6 +62,8 @@ foreach ($name in $models.Keys) {
     Copy-Item -LiteralPath (Join-Path $root "modules/ocr/config/$tier.json") -Destination (Join-Path $dest 'config.json')
 }
 Copy-Item -LiteralPath (Join-Path $root 'modules/ocr/LICENSE') -Destination (Join-Path $licenses 'PaddleOCR-LICENSE.txt')
+Copy-Item -LiteralPath (Join-Path $root 'modules/ocr/licenses/NVIDIA-TensorRT-RTX-LICENSE.pdf') -Destination $licenses
+Copy-Item -LiteralPath (Join-Path $rtxRuntime 'TRT_RTX_README.txt') -Destination $licenses
 Copy-Item -LiteralPath (Join-Path $root 'modules/ocr/README.md') -Destination $output
 # Inventory validates every shipped native asset in the module build.
 $inventory=@{}

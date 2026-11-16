@@ -2409,7 +2409,7 @@ dependencies = [
 
 [[package]]
 name = "moligod"
-version = "0.1.0"
+version = "2.0.0"
 dependencies = [
  "base64 0.22.1",
  "moligod-core",
@@ -2429,7 +2429,7 @@ dependencies = [
 
 [[package]]
 name = "moligod-automation"
-version = "0.1.0"
+version = "2.0.0"
 dependencies = [
  "image",
  "moligod-core",
@@ -2446,7 +2446,7 @@ dependencies = [
 
 [[package]]
 name = "moligod-automation-module"
-version = "0.1.0"
+version = "2.0.0"
 dependencies = [
  "base64 0.22.1",
  "moligod-automation",
@@ -2457,14 +2457,14 @@ dependencies = [
 
 [[package]]
 name = "moligod-core"
-version = "0.1.0"
+version = "2.0.0"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "moligod-crosshair"
-version = "0.1.0"
+version = "2.0.0"
 dependencies = [
  "image",
  "moligod-core",
@@ -2476,7 +2476,7 @@ dependencies = [
 
 [[package]]
 name = "moligod-crosshair-module"
-version = "0.1.0"
+version = "2.0.0"
 dependencies = [
  "base64 0.22.1",
  "moligod-core",
@@ -2487,7 +2487,7 @@ dependencies = [
 
 [[package]]
 name = "moligod-module-host"
-version = "0.1.0"
+version = "2.0.0"
 dependencies = [
  "moligod-core",
  "moligod-module-protocol",
@@ -2500,7 +2500,7 @@ dependencies = [
 
 [[package]]
 name = "moligod-module-protocol"
-version = "0.1.0"
+version = "2.0.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -2508,7 +2508,7 @@ dependencies = [
 
 [[package]]
 name = "moligod-ocr"
-version = "0.1.0"
+version = "2.0.0"
 dependencies = [
  "image",
  "imageproc",
@@ -2520,7 +2520,7 @@ dependencies = [
 
 [[package]]
 name = "moligod-storage"
-version = "0.1.0"
+version = "2.0.0"
 dependencies = [
  "moligod-core",
  "serde_json",

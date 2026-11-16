@@ -1,0 +1,36 @@
+MoligodToolBox GPU Runtime Linking Exception
+Copyright (c) 2026 moligod
+
+This is an additional permission under section 7 of the GNU General Public
+License, version 3 (GPLv3). The first-party code of MoligodToolBox remains
+licensed under GPL-3.0-only; the full GPLv3 text is provided in LICENSE.
+
+If you modify this Program, or any covered work, by linking or combining it
+with the following runtime components, the copyright holder grants you
+additional permission to convey the resulting work:
+
+* Microsoft DirectML runtime libraries;
+* NVIDIA TensorRT for RTX runtime libraries and the ONNX Runtime TensorRT
+  RTX execution provider;
+* NVIDIA CUDA Runtime libraries required by that execution provider.
+
+This permission applies only to the first-party code for which the
+copyright holder has authority to grant it, including modifications whose
+copyright holders choose to retain this permission. It does not grant
+exceptions for other proprietary libraries or for unrelated programs.
+
+The listed vendor components retain their own licenses. This exception
+does not relicense them, grant rights in them, or waive their distribution
+conditions. Preserve their copyright notices and license texts and comply
+with their applicable terms. They are not offered under the GPL.
+
+All other GPLv3 requirements remain in force for the covered work. In
+particular, when conveying a covered executable, provide its complete
+Corresponding Source under GPLv3. The Corresponding Source need not include
+source code of the listed vendor runtime components solely because of
+their combination under this permission. This exception does not permit
+distributing first-party code or its covered modifications as closed source.
+
+You may remove this additional permission from your version as allowed by
+GPLv3 section 7. If you retain it, include this text with copies of your
+version. No contributor is required to extend it to their contributions.

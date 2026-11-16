@@ -2,7 +2,7 @@
 
 客户端固定使用 `moligod/MoligodToolBox` 作为官方仓库，组件目录位于 main 分支的 `official-components/`，版本更新读取正式 GitHub Releases。
 
-该仓库由原 `DF-AutomatedTool` 重命名承接，保留原 Stars、Forks、Issues 和提交历史。原先创建的私有空仓库已改名为 `moligod-toolkit-empty-backup`。后续上传重构代码时，接续现有 main 的提交历史。
+该仓库由原 `DF-AutomatedTool` 重命名承接，保留原 Stars、Forks、Issues 和提交历史。原先创建的私有空仓库已改名为 `moligod-toolkit-empty-backup`。重构源码已接续原 main 历史上传，官方目录及示例文件已通过公开 HTTP 读取验证。
 
 ## 使用方式
 
@@ -33,12 +33,14 @@
 
 1. 将 package.json、package-lock.json、Cargo.toml 和 src-tauri/tauri.conf.json 的版本更新为相同的正式 SemVer 版本，运行验证并提交源码。
 2. 创建对应的 `vMAJOR.MINOR.PATCH` 标签并推送至官方仓库。
-3. 在 GitHub Actions 手动运行 Signed Windows release，填写已有标签。
+3. 在 GitHub Actions 手动运行 Signed Windows release，填写已有标签及 Release 显示名称；首版均为 v2.0.0。
 4. 工作流构建 NSIS 安装包和更新签名，在该标签下创建草稿 Release，上传安装包、签名及 latest.json。
 5. 核对草稿中的安装包和签名清单，完成目标 Windows 环境验收后发布正式 Release，并将该版本标记为 Latest。
 
 工作流按标签源码构建并检查版本一致性。普通本地构建沿用开发构建方式；签名更新产物由 release 工作流通过 `createUpdaterArtifacts` 生成。更新下载地址限定于官方仓库及用户确认的版本标签，安装前由 Tauri updater 验证签名。[Tauri updater](https://v2.tauri.app/plugin/updater/) · [Tauri GitHub Action](https://github.com/tauri-apps/tauri-action)
 
+也可在本地执行 `./scripts/prepare-ocr.ps1`，再执行 `./scripts/build-release.ps1`。脚本使用受忽略保护的本机签名密钥或现有签名环境变量，构建后扫描程序与模块中的本机路径和凭据。需在不含个人信息的构建目录及 Cargo 缓存中生成发布文件；Rust 路径映射不能替代最终二进制扫描。
+
 ## 当前验证边界
 
-正式仓库已改名为 `MoligodToolBox`，本轮将重构源码及官方组件接续原 main 历史上传。跨版本真实安装需要配置签名 Secrets 并发布带更新文件的 Release 后验收。GPU OCR 原生供应商资源的二进制分发许可事项见第三方声明。[第三方声明](../THIRD_PARTY_NOTICES.md)
+源码已上传至正式 `MoligodToolBox` main 分支。官方组件目录与示例公开读取均返回HTTP200，示例内容与本机一致。GitHub Actions因账号账单锁定而未能启动，本轮通过本机构建准备v2.0.0签名安装包。GPU运行库采用经作者同意的限定链接例外并随包保留供应商许可；跨版本真实安装及游戏环境需另行验收。[第三方声明](../THIRD_PARTY_NOTICES.md)

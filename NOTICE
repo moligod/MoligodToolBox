@@ -2,6 +2,9 @@ MoligodToolBox
 Copyright (c) 2026 moligod
 https://github.com/moligod/MoligodToolBox
 
+First-party code is licensed under GPL-3.0-only with the limited GPU runtime
+linking permission in LICENSE-EXCEPTION. Vendor runtimes retain their own terms.
+
 The first-party code and documentation are licensed under the
 GNU General Public License version 3 only (GPL-3.0-only). See LICENSE.
 

@@ -1,9 +1,9 @@
 {
   "name": "moligod-toolbox",
   "description": "Windows 本地游戏工具箱，提供自定义准星与可视化自动化助手",
-  "license": "GPL-3.0-only",
+  "license": "SEE LICENSE IN LICENSE-EXCEPTION",
   "private": true,
-  "version": "0.1.0",
+  "version": "2.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -30,10 +30,13 @@
 - 拟发布299个文件的隐私规则扫描通过，签名私钥由Git忽略。
 - 旧仓库改名承接后，新增旧Release兼容检查及固定夹具。180项前端、12项桌面库原生测试、边界、格式、Clippy和桌面release构建通过，详细证据见verification。
 - 最终仓库名MoligodToolBox及组件、更新地址已同步，npm包元数据为moligod-toolbox。改名后再次通过180项前端、12项桌面库、22项核心/存储测试、边界、Rust格式、Clippy及桌面release构建。
+- 重构代码已上传，官方组件目录及示例公开HTTP200，示例内容与本机一致。用户明确本次一起发布v2.0.0安装包，并同意保留GPU功能的限定链接例外。
+- v2.0.0版本与发布说明已同步，补充许可打包和二进制隐私扫描。发现AWS-LC原生断言会嵌入Cargo缓存的本机路径，当前使用不含个人信息的独立Cargo缓存重建。
+- 独立缓存重建后，主程序及39个模块/运行库文件的本机路径和凭据扫描已通过。正在纳入完整依赖声明并完成最终安装包压缩、签名及发布。
 
 ## 待办
 
 - 原DF-AutomatedTool已重命名为MoligodToolBox并保留160 Stars、18 Forks，空的私有预备仓库改名为moligod-toolkit-empty-backup。
-- 接续现有main历史提交重构代码及官方组件。后续发布二进制更新时，设置签名Secrets并发布带安装包、签名及latest.json的正式Release，标记为Latest。
-- 官方在线目录读取、真实GitHub下载及跨版本安装待发布后验收。
+- 完成v2.0.0安装包构建、签名清单与隐私复检后公开Release并标记Latest。GitHub Actions受账号账单锁定阻止启动，本轮采用本机构建。
+- 真实GitHub安装包下载及跨版本安装待发布后验收。
 - 新版原生WebView2实机交互和release完整进程树性能待运行新版后验证。

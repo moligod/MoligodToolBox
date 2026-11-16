@@ -1,3 +1,14 @@
+# v2.0.0 安装包与发布准备 · 2026-11-16
+
+- 用户确认本次发布安装包，Release名称与标签均为v2.0.0，npm、Cargo工作区及Tauri内部版本统一为2.0.0。第一方代码保留GPL-3.0-only，按作者明确同意附加仅针对DirectML、TensorRT for RTX及必需CUDA Runtime的链接例外。
+- 源码b50c253已普通快进推送至MoligodToolBox，公开raw组件目录及等待示例返回HTTP200，示例与本机内容一致。GitHub仓库身份、160 Stars及18 Forks保留。
+- 版本调整后再次通过180项前端测试、12项桌面原生、13项核心及9项存储测试，依赖边界、Rust格式及workspace Clippy通过。
+- 发布构建映射Rust源路径，并使用不含个人信息的独立Cargo缓存，避免AWS-LC的C/C++断言路径泄露本机账号。主程序及39个模块、模型、运行库文件通过UTF-8/UTF-16本机路径、凭据与私密文件类型扫描。扫描器对构造的UTF-16私密路径能正确拒绝。
+- 最终暂存OCR运行库的固定中英图片验证通过：CPU small/tiny、DirectML tiny及NVIDIA tiny均返回预期文本。结果位于target/toolbox-v2-ocr-*.jsonl。
+- 最终前端构建主资源252.0KiB/254KiB，按需796.6KiB/798KiB，桌面release构建1分17秒。主程序产品名MoligodToolBox，文件及产品版本2.0.0。完整依赖声明作为独立原生资源打包，未增加前端预算。
+- 317个源码候选文件通过隐私规则扫描；检出的邮箱只出现在供应商许可、第三方版权及图标文件名中。签名私钥与本机用户数据没有进入Git索引或安装资源。项目许可、限定例外、供应商许可及依赖声明均加入安装资源。
+- 当前正在完成NSIS压缩与签名，随后生成latest.json、SHA256SUMS.txt并公开Release。构建日志target/toolbox-v2-installer-final-build.log。GitHub Actions因账号账单锁定未启动；全仓库既有格式债务与真实跨版本安装、真实游戏验收不标为通过。
+
 # MoligodToolBox 仓库名称与上传准备 · 2026-11-16
 
 - GitHub正式仓库由原DF-AutomatedTool承接并最终改名为MoligodToolBox，仓库身份R_kgDOQ2cEYA保持不变，核对为160 Stars、18 Forks。保留原main历史，不强推。空的私有预备仓库保持moligod-toolkit-empty-backup。
