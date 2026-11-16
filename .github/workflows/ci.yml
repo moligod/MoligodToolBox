@@ -1,0 +1,41 @@
+name: Foundation checks
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.13.0"
+          cache: npm
+      - name: Install locked frontend dependencies
+        run: npm ci
+      - name: Prepare offline PP-OCRv6 runtime
+        run: |
+          ./scripts/prepare-ocr.ps1
+          npm run modules:dev
+          cargo test -p moligod-ocr --locked
+      - name: Formatting
+        run: cargo fmt --all -- --check
+      - name: Frontend formatting
+        run: npm run format:check
+      - name: Domain and storage tests
+        run: npm run test:core
+      - name: Preset contracts
+        run: npm test
+      - name: Native raster tests
+        run: cargo test -p moligod-crosshair --locked
+      - name: Module protocol and automation tests
+        run: cargo test -p moligod-module-protocol -p moligod-module-host -p moligod-automation --lib --locked
+      - name: Offline small and tiny OCR
+        run: cargo test -p moligod-automation --lib --locked offline_models -- --ignored --nocapture
+      - name: Dependency boundaries
+        run: npm run check:boundaries
+      - name: Rust lint
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: Desktop release build
+        run: npm run tauri build -- --no-bundle --ci

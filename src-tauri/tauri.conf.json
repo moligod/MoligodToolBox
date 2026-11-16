@@ -1,0 +1,53 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "moligod",
+  "version": "0.1.0",
+  "identifier": "com.moligod.desktop",
+  "build": {
+    "beforeDevCommand": "npm run modules:dev && npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run modules:sync && npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "moligod",
+        "decorations": false,
+        "width": 340,
+        "height": 720,
+        "visible": false,
+        "backgroundColor": "#101113"
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src ipc: http://ipc.localhost; object-src 'none'; frame-src 'none'; base-uri 'self'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "resources": {
+      "../bundled-modules/package/": "modules/"
+    },
+    "targets": ["nsis"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.ico"
+    ]
+  },
+  "plugins": {
+    "updater": {
+      "windows": {
+        "installMode": "passive"
+      },
+      "endpoints": [
+        "https://github.com/moligod/MoligodToolBox/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEYyOEMxQkNFMjI2OUEzMTQKUldRVW8ya2l6aHVNOHVzcWx2a3dRTUZGT3ViSE8wTkJkaGpCMHFJZGo3dWkxZUlDYmFFU3FDd3AK",
+      "requireSignedVersion": true
+    }
+  }
+}

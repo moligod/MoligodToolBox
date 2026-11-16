@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "games": [
+    {
+      "id": "game-sample",
+      "title": "星港回响",
+      "subtitle": "在失落星港中组建你的探险小队。",
+      "description": "第一行介绍。\n第二行介绍。",
+      "developer": "Moligod Studio",
+      "publisher": "Moligod Studio",
+      "releaseDate": "2026-10-23",
+      "platforms": ["Windows"],
+      "tags": ["动作", "单人"],
+      "cover": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL5gAAAAABJRU5ErkJggg==",
+      "hero": "",
+      "screenshots": [],
+      "status": "published",
+      "featured": true,
+      "createdAt": "2026-10-23T00:00:00.000Z",
+      "updatedAt": "2026-10-23T00:00:00.000Z"
+    }
+  ]
+}

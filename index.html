@@ -1,0 +1,890 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <title>moligod工具箱</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+    <script type="module" src="/src/main.ts"></script>
+  </head>
+  <body class="toolbox-compact">
+    <header class="app-header" data-tauri-drag-region>
+      <a class="brand" href="#games" aria-label="moligod工具箱"
+        ><img src="/brand.svg" alt="" /><strong>moligod 工具箱</strong></a
+      >
+      <button type="button" id="app-version" class="app-version" title="检查更新" disabled></button>
+      <form id="tool-search" class="search" role="search">
+        <img class="icon" src="/icons/magnifying-glass.svg" alt="" /><input
+          id="search-input"
+          type="search"
+          aria-label="搜索游戏"
+          placeholder="搜索游戏、标签、开发商"
+          maxlength="100"
+        /><button type="submit">搜索</button>
+      </form>
+      <div class="window-controls" role="group" aria-label="窗口操作">
+        <button
+          data-window-action="minimize"
+          aria-label="最小化"
+          title="最小化"
+        >
+          <img class="icon" src="/icons/minus.svg" alt="" />
+        </button>
+        <button
+          data-window-action="maximize"
+          aria-label="最大化或还原"
+          title="最大化或还原"
+        >
+          <img class="icon" src="/icons/square.svg" alt="" />
+        </button>
+        <button
+          data-window-action="close"
+          aria-label="关闭窗口"
+          title="关闭窗口"
+        >
+          <img class="icon" src="/icons/x.svg" alt="" />
+        </button>
+      </div>
+    </header>
+    <div id="dock-handle" aria-label="移入展开工具箱"></div>
+    <aside class="sidebar" id="app-sidebar">
+      <nav aria-label="工具列表" class="launcher-tools">
+        <h2 class="launcher-section-title">本地工具</h2>
+        <button class="nav-item" data-page="crosshair"><img class="icon" src="/icons/lucide/crosshair.svg" alt="" /><span><strong>自定义准星</strong><small>准星样式、预设与快捷键</small></span><span class="launcher-open" aria-hidden="true">›</span></button>
+        <button class="nav-item" data-page="automation"><img class="icon" src="/icons/lucide/workflow.svg" alt="" /><span><strong>自动化助手</strong><small>窗口操作、图像识别与流程编排</small></span><span class="launcher-open" aria-hidden="true">›</span></button>
+      </nav>
+      <section class="launcher-websites" aria-label="网站导航">
+        <h2 class="launcher-section-title">我的网站</h2>
+        <a class="website-card guide" href="https://moligod.com" data-website="guide" target="_blank" rel="noopener noreferrer"><img class="website-mark" src="/icons/lucide/book-open.svg" alt="" width="18" height="18" /><span class="website-copy"><strong>三角洲行动攻略站</strong><small>moligod.com</small></span><span class="website-arrow" aria-hidden="true">↗</span></a>
+        <a class="website-card blog" href="https://moligod.cn" data-website="blog" target="_blank" rel="noopener noreferrer"><img class="website-mark" src="/icons/lucide/notebook-pen.svg" alt="" width="18" height="18" /><span class="website-copy"><strong>moligod 博客</strong><small>moligod.cn</small></span><span class="website-arrow" aria-hidden="true">↗</span></a>
+        <a class="website-card trove" href="https://trovebbs.com" data-website="trove" target="_blank" rel="noopener noreferrer" title="宝藏导航 · trovebbs.com"><img class="website-mark" src="/icons/lucide/compass.svg" alt="" width="18" height="18" /><span class="website-copy"><strong>宝藏导航</strong><small>游戏 · App · 网页 精选收录</small></span><span class="website-arrow" aria-hidden="true">↗</span></a>
+      </section>
+      <div class="sidebar-bottom">
+        <button id="return-list" data-page="tools" class="nav-item" hidden>返回工具列表</button>
+        <small class="launcher-tray-note">关闭窗口后仍在系统托盘运行</small>
+      </div>
+    </aside>
+    <main>
+      <div class="topbar">
+        <button
+          type="button"
+          id="workspace-home"
+          class="workspace-home"
+          aria-pressed="true"
+        >
+          工作台
+        </button>
+        <div id="workspace-tabs" role="tablist" aria-label="已打开的工具"></div>
+        <button type="button" id="return-toolbox" class="secondary" hidden>
+          返回工具箱
+        </button>
+      </div>
+      <div id="notice" popover="manual" aria-label="全局提醒"></div>
+      <section id="page-games" class="page game-page" aria-label="发现游戏"><p class="muted" role="status">正在读取游戏资料…</p></section>
+      <section id="page-game-detail" class="page game-page" aria-label="游戏详情" hidden></section>
+      <section id="page-tools" class="page" hidden>
+        <div class="page-heading">
+          <div>
+            <h1 id="catalog-title">全部工具</h1>
+          </div>
+          <span id="result-count" class="result-count" role="status"
+            >2 个工具</span
+          >
+        </div>
+        <div class="catalog-toolbar">
+          <div class="tool-tabs" data-slot="segmented-controls" aria-label="工具状态">
+            <button data-status="all" class="selected" aria-pressed="true">
+              全部</button
+            ><button data-status="preview" aria-pressed="false">可配置</button
+            ><button data-status="pending" aria-pressed="false">接入中</button>
+          </div>
+          <div class="view-controls" role="group" aria-label="显示方式">
+            <button
+              data-view="grid"
+              class="selected"
+              aria-pressed="true"
+              aria-label="卡片视图"
+            >
+              <img class="icon" src="/icons/squares-four.svg" alt="" /></button
+            ><button
+              data-view="list"
+              aria-pressed="false"
+              aria-label="列表视图"
+            >
+              <img class="icon" src="/icons/list.svg" alt="" />
+            </button>
+          </div>
+        </div>
+        <div class="tool-grid" id="tool-results">
+          <article
+            class="tool-card"
+            data-tool-category="general"
+            data-tool-status="preview"
+            data-search="自定义准星 通用工具 瞄准 尺寸 间距 颜色 crosshair aim"
+          >
+            <div class="tool-identity">
+              <div class="tool-symbol">
+                <img src="/icons/crosshair.svg" alt="" />
+              </div>
+              <div>
+                <span class="tool-category">通用工具</span>
+                <h2>自定义准星</h2>
+              </div>
+              <span id="crosshair-card-state" class="state-label">未开启</span>
+            </div>
+            <p class="tool-description">
+              调整准星尺寸、间距与颜色，保存适合自己的瞄准习惯。
+            </p>
+            <div class="tool-tags">
+              <span>实时预览</span><span>本地预设</span>
+            </div>
+            <div class="tool-bottom">
+              <span class="tool-limitation">原生覆盖层 · 按需开启</span
+              ><button class="primary" id="open-crosshair">配置准星</button>
+            </div>
+          </article>
+          <article
+            class="tool-card"
+            data-tool-category="general"
+            data-tool-status="preview"
+            data-search="自动化助手 通用工具 窗口 图像 识别 OCR 脚本 流程 automation"
+          >
+            <div class="tool-identity">
+              <div class="tool-symbol neutral">
+                <img src="/icons/flow-arrow.svg" alt="" />
+              </div>
+              <div>
+                <span class="tool-category">通用工具</span>
+                <h2>自动化助手</h2>
+              </div>
+              <span id="automation-card-state" class="state-label neutral"
+                >已安装</span
+              >
+            </div>
+            <p class="tool-description">
+              窗口绑定、图像识别与脚本编排，集中管理重复操作。
+            </p>
+            <div class="tool-tags">
+              <span>窗口操作</span><span>流程编排</span>
+            </div>
+            <div class="tool-bottom">
+              <span class="tool-limitation">独立模块 · 按需运行</span
+              ><button class="secondary" id="open-automation">打开工具</button>
+            </div>
+          </article>
+        </div>
+        <div id="empty-results" class="empty-results" hidden>
+          <h2>没有找到匹配的工具</h2>
+          <p class="muted">换一个关键词，或清除分类与状态筛选。</p>
+          <button class="secondary" id="clear-filters">清除筛选</button>
+        </div>
+        <div class="scope-note">
+          <span class="badge">基础开发版</span>
+          <p>工具正在分阶段接入。每项工具的可用范围会在入口处说明。</p>
+        </div>
+      </section>
+      <section id="page-delta" class="page" hidden>
+        <div class="page-heading"><h1>三角洲行动</h1></div>
+        <a
+          id="open-delta-guide"
+          class="primary"
+          href="https://moligod.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          >打开三角洲攻略站（moligod.com）</a
+        >
+      </section>
+      <section
+        class="page tool-page"
+        hidden
+        id="crosshair-dialog"
+        aria-labelledby="crosshair-heading"
+      >
+        <h2 id="crosshair-heading" class="visually-hidden">自定义准星</h2>
+        <form id="crosshair-form">
+          <div class="crosshair-layout">
+            <div class="crosshair-preview-column">
+              <div class="preview-stage">
+                <canvas
+                  id="crosshair-preview"
+                  width="240"
+                  height="240"
+                  tabindex="0"
+                  aria-label="准星预览，方向键调整位置，Shift 加速"
+                ></canvas>
+              </div>
+              <div class="preview-action-row">
+                <button type="button" class="primary" id="start-crosshair">
+                  开启自定义准星
+                </button>
+                <div class="compact-field">
+                  <select id="aim-monitor" aria-label="显示器">
+                    <option value="">主显示器（自动）</option>
+                  </select>
+                </div>
+              </div>
+              <section
+                class="crosshair-code-panel"
+                aria-labelledby="aim-code-heading"
+              >
+                <h3 id="aim-code-heading">准星码</h3>
+                <input
+                  id="aim-code"
+                  aria-label="准星码"
+                  type="text"
+                  maxlength="1024"
+                  spellcheck="false"
+                  placeholder="输入准星码"
+                />
+                <div class="actions">
+                  <button
+                    type="button"
+                    class="secondary"
+                    id="generate-aim-code"
+                  >
+                    生成准星码</button
+                  ><button type="button" class="secondary" id="copy-aim-code">
+                    复制</button
+                  ><button type="button" class="primary" id="load-aim-code">
+                    导入准星码
+                  </button>
+                </div>
+                <p id="aim-code-status" class="small" role="status"></p>
+              </section>
+            </div>
+            <div class="crosshair-options">
+              <label for="aim-style"
+                >样式<select id="aim-style">
+                  <option value="cross">十字</option>
+                  <option value="dot">圆点</option>
+                  <option value="circle">圆圈</option>
+                  <option value="image">自定义图片</option>
+                </select></label
+              >
+              <div id="shape-controls">
+                <div class="slider-grid">
+                  <div class="slider-field">
+                    <label for="aim-size"
+                      >尺寸 <output id="size-output">24</output></label
+                    ><input
+                      id="aim-size"
+                      type="range"
+                      min="8"
+                      max="96"
+                      value="24"
+                    />
+                  </div>
+                  <div class="slider-field">
+                    <label for="aim-thickness"
+                      >粗细 <output id="thickness-output">2</output></label
+                    ><input
+                      id="aim-thickness"
+                      type="range"
+                      min="1"
+                      max="8"
+                      value="2"
+                    />
+                  </div>
+                  <div class="slider-field">
+                    <label for="aim-gap"
+                      >间距 <output id="gap-output">4</output></label
+                    ><input
+                      id="aim-gap"
+                      type="range"
+                      min="0"
+                      max="20"
+                      value="4"
+                    />
+                  </div>
+                  <div class="slider-field">
+                    <label for="aim-dot"
+                      >圆点大小 <output id="dot-output">4</output></label
+                    ><input
+                      id="aim-dot"
+                      type="range"
+                      min="1"
+                      max="32"
+                      value="4"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div id="image-controls" hidden>
+                <button
+                  type="button"
+                  class="secondary"
+                  id="choose-crosshair-image"
+                >
+                  选择图片
+                </button>
+                <input
+                  id="crosshair-image-file"
+                  type="file"
+                  accept="image/png,image/jpeg,image/bmp,image/gif"
+                  hidden
+                />
+                <p class="muted small">
+                  PNG / JPG / BMP / GIF（静态首帧），最大 8
+                  MiB。自动裁剪透明边缘。PNG 支持透明背景，JPG
+                  不支持透明背景；需要透明准星时建议使用 PNG。
+                </p>
+                <label for="aim-image-scale"
+                  >图片缩放 %
+                  <output id="image-scale-output">100</output></label
+                ><input
+                  id="aim-image-scale"
+                  type="range"
+                  min="5"
+                  max="200"
+                  value="100"
+                />
+              </div>
+              <div class="appearance-row">
+                <label id="color-field" class="color-row" for="aim-color"
+                  >颜色<input id="aim-color" type="color" value="#c4f568"
+                /></label>
+                <label class="opacity-field" for="aim-opacity"
+                  >不透明度（%）<input
+                    id="aim-opacity"
+                    type="number"
+                    min="10"
+                    max="100"
+                    step="1"
+                    value="100"
+                    required
+                /></label>
+              </div>
+              <div class="position-inputs">
+                <div class="offset-field">
+                  <label for="aim-x">水平偏移</label>
+                  <div class="offset-control">
+                    <input
+                      id="aim-x"
+                      type="number"
+                      min="-16384"
+                      max="16384"
+                      step="1"
+                      value="0"
+                      required
+                    />
+                    <button
+                      type="button"
+                      data-offset="aim-x"
+                      data-step="-1"
+                      aria-label="向左调整水平偏移"
+                      title="按住左右拖动"
+                    >
+                      <img class="icon" src="/icons/arrow-left.svg" alt="" />
+                    </button>
+                    <button
+                      type="button"
+                      data-offset="aim-x"
+                      data-step="1"
+                      aria-label="向右调整水平偏移"
+                      title="按住左右拖动"
+                    >
+                      <img class="icon" src="/icons/arrow-right.svg" alt="" />
+                    </button>
+                  </div>
+                </div>
+                <div class="offset-field">
+                  <label for="aim-y">垂直偏移</label>
+                  <div class="offset-control">
+                    <input
+                      id="aim-y"
+                      type="number"
+                      min="-16384"
+                      max="16384"
+                      step="1"
+                      value="0"
+                      required
+                    />
+                    <div class="vertical-arrows">
+                      <button
+                        type="button"
+                        data-offset="aim-y"
+                        data-step="-1"
+                        aria-label="向上调整垂直偏移"
+                        title="按住上下拖动"
+                      >
+                        <img class="icon" src="/icons/arrow-up.svg" alt="" />
+                      </button>
+                      <button
+                        type="button"
+                        data-offset="aim-y"
+                        data-step="1"
+                        aria-label="向下调整垂直偏移"
+                        title="按住上下拖动"
+                      >
+                        <img class="icon" src="/icons/arrow-down.svg" alt="" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <button id="center-crosshair" type="button" class="secondary">
+                  居中
+                </button>
+              </div>
+              <div class="hotkey-single-row">
+                <div class="compact-field">
+                  <label for="aim-hotkey">显示／隐藏快捷键</label>
+                  <div class="key-capture-row">
+                    <button
+                      type="button"
+                      class="secondary"
+                      id="aim-hotkey"
+                      value="119"
+                      aria-pressed="false"
+                    >
+                      F8</button
+                    ><button
+                      type="button"
+                      class="secondary"
+                      id="clear-hotkey"
+                      aria-label="清除快捷键"
+                    >
+                      清除
+                    </button>
+                  </div>
+                </div>
+                <div class="compact-field">
+                  <label for="aim-hotkey-mode">触发方式</label
+                  ><select id="aim-hotkey-mode">
+                    <option value="toggle">点击切换</option>
+                    <option value="hold">按住隐藏，松开恢复</option>
+                    <option value="holdShow">按住显示，松手隐藏</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <p
+            id="dialog-notice"
+            class="dialog-error small"
+            role="alert"
+            hidden
+          ></p>
+        </form>
+      </section>
+      <section
+        class="page tool-page"
+        hidden
+        id="automation-dialog"
+        aria-labelledby="automation-heading"
+      >
+        <h2 id="automation-heading" class="visually-hidden">自动化助手</h2>
+        <div class="automation-layout">
+          <section class="auto-toolbox" aria-label="自动化工具箱">
+            <div class="auto-toolbox-heading">
+              <button type="button" id="auto-tasks-tab" aria-expanded="false" aria-controls="auto-tasks-panel">任务列表</button>
+              <div id="auto-current-task" aria-label="当前任务设置"></div>
+              <div class="auto-toolbox-tabs" data-slot="segmented-controls" aria-label="工具设置">
+                <button type="button" id="auto-model-tab" aria-expanded="false" aria-controls="auto-model-panel">模型</button>
+                <button type="button" id="auto-hotkeys-tab" aria-expanded="false" aria-controls="auto-hotkeys-panel">快捷键</button>
+              </div>
+            </div>
+            <div class="auto-toolbox-content">
+              <section id="auto-model-panel" class="auto-toolbox-panel" aria-labelledby="auto-model-tab" hidden>
+                <div class="auto-ocr-settings" aria-label="全局 OCR 设置">
+                  <label>识别方式<select id="auto-ocr-device"><option value="cpu">CPU 识别</option><option value="amd">显卡识别</option><option value="nvidia">N卡专用（30系+）</option></select></label>
+                  <label>模型<select id="auto-ocr-model"><option value="small">PP-OCRv6 small</option><option value="tiny">PP-OCRv6 tiny</option></select></label>
+                </div>
+              </section>
+          <section id="auto-tasks-panel" class="auto-tasks auto-toolbox-panel" aria-labelledby="auto-tasks-tab" hidden>
+            <div hidden id="auto-task-fields-home">
+              <div class="auto-task-controls" id="auto-task-fields">
+                <input
+                  id="auto-task-name"
+                  aria-label="任务名称"
+                  maxlength="100"
+                  value="新任务"
+                />
+                <label id="auto-task-loop" class="auto-loop-count" title="0表示一直循环">循环 <input id="auto-task-repeats" type="number" min="0" max="100000" value="1" aria-label="循环次数（0为一直循环）" /> 次</label>
+                <span class="auto-interval-label">间隔</span>
+                <input
+                  id="auto-task-interval"
+                  aria-label="执行间隔（毫秒）"
+                  type="number"
+                  min="100"
+                  max="3600000"
+                  value="1000"
+                />
+                <span>毫秒</span>
+              </div>
+            </div>
+            <input
+              id="auto-script-file"
+              type="file"
+              accept=".json,application/json"
+              hidden
+            />
+            <div class="auto-task-browser">
+              <div
+                id="auto-task-list"
+                class="auto-task-list"
+                tabindex="0"
+                aria-label="任务列表"
+                aria-live="polite"
+              ></div>
+              <div id="auto-task-create" class="auto-task-create">
+                <button
+                  type="button"
+                  class="secondary"
+                  id="auto-task-new"
+                  aria-label="新建任务"
+                >
+                  <span aria-hidden="true">＋</span> 新建任务
+                </button>
+                <button type="button" class="secondary" id="auto-import">
+                  <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 3v12m-4-4 4 4 4-4M4 15v5h16v-5"/></svg> 导入任务
+                </button>
+              </div>
+            </div>
+          </section>
+          <section
+            id="auto-logs-panel"
+            class="auto-results-panel auto-toolbox-panel"
+            aria-labelledby="auto-logs-tab"
+            hidden
+          >
+            <div class="auto-log-tabs" data-slot="segmented-controls" role="tablist" aria-label="日志类型">
+              <button type="button" id="auto-recognition-tab" role="tab" aria-selected="true" aria-controls="auto-variables">识别日志</button>
+              <button type="button" id="auto-execution-tab" role="tab" aria-selected="false" aria-controls="auto-log" tabindex="-1">执行日志</button>
+            </div>
+            <pre id="auto-variables" role="tabpanel" aria-labelledby="auto-recognition-tab" tabindex="0" aria-live="polite">暂无识别日志</pre>
+            <pre id="auto-log" role="tabpanel" aria-labelledby="auto-execution-tab" tabindex="0" aria-live="polite" hidden>暂无执行日志</pre>
+          </section>
+              <section id="auto-hotkeys-panel" class="auto-toolbox-panel" aria-labelledby="auto-hotkeys-tab" hidden>
+                <div class="auto-hotkey-row">
+                  <span id="auto-stop-key-label">紧急停止</span>
+                  <button type="button" id="auto-stop-key" class="secondary" aria-labelledby="auto-stop-key-label auto-stop-key" aria-pressed="false">Ctrl + Alt + F10</button>
+                  <button type="button" id="auto-stop-key-reset" class="secondary">恢复默认</button>
+                </div>
+                <p id="auto-stop-key-status" class="small muted" role="status">点击录入快捷键，按 Esc 取消。紧急停止会停止所有正在运行的任务。</p>
+              </section>
+            </div>
+          </section>
+          <section class="auto-composer" hidden>
+            <div class="auto-pair auto-action-picker">
+              <label
+                >要做什么<select id="auto-type" aria-label="操作">
+                  <optgroup label="基础操作" data-category="basic">
+                    <option value="wait">等待</option>
+                    <option value="setWindow">设置窗口</option>
+                    <option value="focus">切换窗口</option>
+                    <option value="group">分组</option>
+                    <option value="comment">注解</option>
+                    <option value="notify">提示</option>
+                    <option value="set">保存变量</option>
+                    <option value="calculate">计算变量</option>
+                    <option value="regex">正则匹配</option>
+                    <option value="runTask">运行任务</option>
+                  </optgroup>
+                  <optgroup label="鼠标键盘" data-category="input">
+                    <option value="keyDown">按住按键</option>
+                    <option value="keyUp">松开按键</option>
+                    <option value="click">鼠标点击</option>
+                    <option value="drag">按住拖动</option>
+                    <option value="scroll">滚轮滚动</option>
+                    <option value="key">按键</option>
+                    <option value="text">输入文本</option>
+                  </optgroup>
+                  <optgroup label="识别截图" data-category="vision">
+                    <option value="ocr">读取文字</option>
+                    <option value="match">查找图片</option>
+                    <option value="capture">保存截图</option>
+                  </optgroup>
+                  <optgroup label="流程控制" data-category="flow">
+                    <option value="waitUntil">等待条件</option>
+                    <option value="if">如果</option>
+                    <option value="elseIf">否则如果</option>
+                    <option value="else">否则</option>
+                    <option value="endIf">条件结束</option>
+                    <option value="assert">条件停止</option>
+                    <option value="loop">重复</option>
+                    <option value="endLoop">循环结束</option>
+                    <option value="break">退出循环</option>
+                    <option value="continue">下一轮</option>
+                    <option value="label">标签</option>
+                    <option value="goto">跳到标签</option>
+                  </optgroup>
+                </select></label
+              >
+            </div>
+            <div id="auto-action-setup" hidden>
+              <h4 id="auto-selected-action" tabindex="-1"></h4>
+              <p id="auto-action-help" class="auto-help" aria-live="polite"></p>
+              <div class="auto-composer-fields">
+                <div class="auto-window-binding" data-actions="setWindow">
+                  <label id="auto-window-label" for="auto-window-select"
+                    >窗口 A</label
+                  >
+                  <div class="auto-window-source">
+                    <select id="auto-window-select" aria-label="绑定系统窗口">
+                      <option value="">请选择窗口</option>
+                    </select>
+                    <button
+                      type="button"
+                      class="secondary"
+                      id="auto-refresh"
+                      aria-label="刷新窗口"
+                      title="刷新窗口列表"
+                    >
+                      ↻
+                    </button>
+                  </div>
+                </div>
+
+
+                <div class="auto-parameter-grid" id="auto-parameters">
+                  <label
+                    data-actions="setWindow focus click drag scroll ocr match capture"
+                    >目标窗口<select id="auto-target" aria-label="目标窗口">
+                      <option value="A">窗口 1</option>
+                    </select></label
+                  >
+                <label data-actions="click drag scroll">操作类型<select id="auto-mouse-type" aria-label="鼠标操作类型">
+                  <option value="click">鼠标点击</option>
+                  <option value="drag">按住拖动</option>
+                  <option value="scroll">滚轮滚动</option>
+                </select></label>
+                  <label data-actions="click drag scroll">操作模式<select id="auto-mouse-mode" aria-label="鼠标操作模式">
+                    <option value="foreground">前台操作</option>
+                    <option value="background">后台操作</option>
+                  </select></label>
+                  <label data-actions="click drag"
+                    >鼠标按键<select id="auto-button" aria-label="鼠标按键">
+                      <option value="left">左键</option>
+                      <option value="right">右键</option>
+                      <option value="middle">中键</option>
+                    </select></label
+                  >
+                  <label data-actions="click">点击位置<select id="auto-position-source"><option value="point">截图选点</option><option value="variable">位置变量</option></select></label>
+                  <label data-actions="click" id="auto-position-label">位置变量<input id="auto-position" placeholder="如 result" /></label>
+                  <label data-actions="key"
+                    >按键（如 Ctrl+A / F8）<input id="auto-key" value="Space"
+                  /></label>
+
+                  <label data-actions="drag"
+                    >拖动时长（毫秒）<input
+                      id="auto-drag-duration"
+                      type="number"
+                      min="1"
+                      max="60000"
+                      value="500"
+                  /></label>
+                  <label data-actions="scroll"
+                    >滚动方向：<select id="auto-scroll-direction">
+                      <option value="-1">向下</option>
+                      <option value="1">向上</option>
+                  </select></label>
+                  <label data-actions="scroll"
+                    >滚动次数：<select id="auto-scroll-count"></select></label>
+                  <label
+                    data-actions="ocr match set calculate regex"
+                    ><span id="auto-variable-label">保存到变量</span><input id="auto-variable" value="result"
+                  /></label>
+                  <label data-actions="match"
+                    >相似度（0～1）<input
+                      id="auto-threshold"
+                      type="number"
+                      min="0"
+                      max="1"
+                      step="0.01"
+                      value="0.95"
+                  /></label>
+                  <label data-actions="match" class="auto-check"><input id="auto-save-position" type="checkbox" />保存图片位置（没找到为空）</label>
+                  <label data-actions="wait"
+                    >等待（秒）<input
+                      id="auto-wait"
+                      type="number"
+                      min="0"
+                      max="3660"
+                      step="0.001"
+                      value="1"
+                  /></label>
+                  <label data-actions="loop"
+                    >循环次数（0 为持续循环）<input
+                      id="auto-count"
+                      type="number"
+                      min="0"
+                      max="1000000"
+                      value="3"
+                  /></label>
+                  <label data-actions="group"
+                    >分组名称<input
+                      id="auto-group-name"
+                      value="新分组"
+                      maxlength="64"
+                  /></label>
+                </div>
+                <label data-actions="if elseIf">判断方式<select id="auto-condition-kind"><option value="expression">表达式判断</option><option value="regex">正则匹配</option></select></label>
+                <div id="auto-condition-regex" class="auto-pair" data-actions="if elseIf" hidden>
+                  <label>匹配变量<input id="auto-condition-source" value="result_A" /></label>
+                  <label>正则规则<input id="auto-condition-pattern" /></label>
+                </div>
+                <label data-actions="if elseIf calculate assert"
+                  >表达式<input id="auto-expression" value="result &gt; 0"
+                /></label>
+                <label
+                  data-actions="text set label goto comment capture regex"
+                  ><span id="auto-value-label">内容 / 值 / 标签</span
+                  ><input id="auto-value" value=""
+                /></label>
+                <div class="auto-pair" data-actions="capture">
+                  <button type="button" class="secondary" id="auto-capture-directory">修改保存位置</button>
+                  <span id="auto-capture-path" class="small muted"></span>
+                </div>
+                <div class="auto-pair" data-actions="ocr">
+                  <label class="auto-check"
+                    ><input
+                      id="auto-numbers"
+                      type="checkbox"
+                    />仅保留数字</label
+                  >
+                  <span id="auto-ocr-legacy-result" class="small muted" hidden>旧设置保存为文字，点击完成后改为数字</span>
+                  <label class="auto-check" data-actions="ocr"
+                    ><input
+                      id="auto-reuse"
+                      type="checkbox"
+                      checked
+                    />画面没变时沿用结果</label
+                  >
+                </div>
+                <div class="auto-template-row" data-actions="match">
+                  <button
+                    type="button"
+                    class="secondary"
+                    id="auto-template-pick"
+                  >
+                    选择图片
+                  </button>
+                  <span id="auto-template-name" class="small muted"
+                    >未选择</span
+                  >
+                  <input
+                    id="auto-template-file"
+                    type="file"
+                    accept="image/png,image/jpeg,image/bmp"
+                    hidden
+                  />
+                </div>
+                <div id="auto-template-point-setting" class="auto-template-point-setting" data-actions="match">
+                  <button type="button" class="secondary" id="auto-template-point">选择保存位置</button>
+                  <span id="auto-template-point-value" class="small muted">图片中心</span>
+                </div>
+                <div class="actions">
+                  <button type="button" class="secondary" id="auto-preview">
+                    截取窗口选点</button
+                  ><button type="button" class="secondary" id="auto-ocr-test">
+                    测试识别
+                  </button>
+                </div>
+                <details
+                  class="auto-coordinate-settings"
+                  data-actions="click drag scroll ocr match capture"
+                >
+                  <summary>位置 / 区域</summary>
+                  <div
+                    class="auto-pair auto-coordinates"
+                    data-actions="click drag scroll ocr match capture"
+                  >
+                    <label
+                      ><span id="auto-x-label">X</span
+                      ><input id="auto-x" type="number" min="0" value="0"
+                    /></label>
+                    <label
+                      ><span id="auto-y-label">Y</span
+                      ><input id="auto-y" type="number" min="0" value="0"
+                    /></label>
+                  </div>
+
+                  <div class="auto-pair" data-actions="drag">
+                    <label
+                      >终点 X<input
+                        id="auto-to-x"
+                        type="number"
+                        min="0"
+                        value="100"
+                    /></label>
+                    <label
+                      >终点 Y<input
+                        id="auto-to-y"
+                        type="number"
+                        min="0"
+                        value="100"
+                    /></label>
+                  </div>
+                  <div
+                    class="auto-pair"
+                    data-actions="ocr match capture"
+                  >
+                    <label
+                      >区域宽<input
+                        id="auto-width"
+                        type="number"
+                        min="1"
+                        value="300"
+                    /></label>
+                    <label
+                      >区域高<input
+                        id="auto-height"
+                        type="number"
+                        min="1"
+                        value="80"
+                    /></label>
+                  </div>
+
+                </details>
+                <details class="auto-extra-settings">
+                  <summary>更多设置</summary>
+                  <div class="auto-pair">
+                    <label data-actions="click key"
+                      >按住时间（ms）<input
+                        id="auto-hold"
+                        type="number"
+                        min="0"
+                        max="60000"
+                        value="30"
+                    /></label>
+                  </div>
+                </details>
+                <p id="auto-selection-result" class="small" hidden></p>
+              </div>
+              <div class="auto-composer-submit">
+                <span id="auto-add-feedback" class="auto-help" role="status"
+                  >修改即时生效。</span
+                ><button type="button" class="primary" id="auto-config-done">
+                  完成
+                </button>
+              </div>
+            </div>
+          </section>
+          <div id="auto-editor-empty" class="auto-editor-empty" role="status">
+            <span class="auto-empty-icon" aria-hidden="true">≡</span>
+            <strong id="auto-empty-title">请先创建任务</strong>
+            <span id="auto-empty-hint">从一个任务开始，按顺序编排执行步骤</span>
+          </div>
+          <section class="auto-script" hidden>
+            <div class="auto-script-main">
+              <div
+                id="auto-step-list"
+                tabindex="0"
+                class="block-workspace"
+                role="region"
+                aria-label="动作序列编辑区"
+              ></div>
+            </div>
+          </section>
+          <div class="auto-canvas-tools" aria-label="画布操作栏"></div>
+          <section class="auto-log-dock" aria-label="运行日志">
+            <button type="button" id="auto-logs-tab" aria-expanded="false" aria-controls="auto-logs-panel">日志</button>
+          </section>
+          <div class="auto-side-panel" hidden></div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

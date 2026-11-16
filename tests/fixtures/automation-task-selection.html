@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>任务行选择测试</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+    <style>
+      body {
+        display: block;
+        padding: 24px;
+        overflow: auto;
+      }
+      main {
+        width: min(1040px, 100%);
+        margin: 0 auto;
+        padding: 0;
+      }
+      #automation-dialog {
+        padding: 0;
+        min-height: 520px;
+        overflow: visible;
+      }
+      #fixture-script {
+        width: 100%;
+        min-height: 250px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="small muted">任务界面测试数据 · 不执行原生输入</p>
+      <section id="automation-dialog"></section>
+      <p id="fixture-notice" role="status" hidden></p>
+      <label
+        >当前任务动作<textarea
+          id="fixture-script"
+          spellcheck="false"
+        ></textarea>
+      </label>
+      <pre id="fixture-calls" hidden></pre>
+    </main>
+    <script type="module">
+      import { initAutomationTasks } from "/src/automation-tasks.ts";
+      import { initAutomationToolbox } from "/src/automation-toolbox.ts";
+      const html = new DOMParser().parseFromString(
+        await (await fetch("/index.html")).text(),
+        "text/html",
+      );
+      const root = document.querySelector("#automation-dialog");
+      if (location.search.includes("workbench")) {
+        const layout = document.createElement("div");
+        layout.className = "automation-layout";
+        layout.append(html.querySelector(".auto-toolbox"), html.querySelector(".auto-log-dock"), html.querySelector(".auto-side-panel"));
+        root.append(layout);
+        initAutomationToolbox(root);
+      } else {
+        const tasksPanel = html.querySelector(".auto-tasks");
+        tasksPanel.hidden = false;
+        root.append(tasksPanel);
+      }
+      const script = document.querySelector("#fixture-script");
+      const ids = [
+        "12345678-1234-1234-1234-123456789abc",
+        "12345678-1234-1234-1234-123456789abd",
+      ];
+      const tasks = new Map(
+        ids.map((id, index) => [
+          id,
+          {
+            schemaVersion: 2,
+            id,
+            name: index ? "价格识别" : "等待任务",
+            intervalMs: index ? 8000 : 5000,
+            script: {
+              schemaVersion: 1,
+              name: index ? "价格识别" : "等待任务",
+              repeats: 1,
+              maxRunSeconds: 86400,
+              startDelayMs: 0,
+              steps: [
+                {
+                  delayMs: 0,
+                  action: index
+                    ? {
+                        type: "ocr",
+                        target: "B",
+                        variable: "price",
+                        region: { x: 0, y: 0, width: 100, height: 100 },
+                      }
+                    : { type: "wait", ms: 500 },
+                },
+              ],
+            },
+          },
+        ]),
+      );
+      if (location.search.includes("many")) {
+        for (const [index, suffix] of ["e", "f", "0"].entries()) {
+          const id = `12345678-1234-1234-1234-123456789ab${suffix}`;
+          const task = structuredClone(tasks.get(ids[0]));
+          task.id = id;
+          task.name = `额外任务 ${index + 1}`;
+          task.script.name = task.name;
+          tasks.set(id, task);
+        }
+      }
+      const statuses = {};
+      script.value = JSON.stringify(
+        {
+          schemaVersion: 1,
+          name: "新任务",
+          repeats: 1,
+          maxRunSeconds: 86400,
+          startDelayMs: 0,
+          steps: [{ delayMs: 0, action: { type: "comment", text: "新任务" } }],
+        },
+        null,
+        2,
+      );
+      const calls = [];
+      const manager = initAutomationTasks(
+        {
+          read: () => JSON.parse(script.value),
+          render: (value) => {
+            script.value = JSON.stringify(value, null, 2);
+          },
+          bindings: () => ({}),
+          notify: (text, error = false) => {
+            const notice = document.querySelector("#fixture-notice");
+            notice.textContent = text;
+            notice.hidden = false;
+            notice.classList.toggle("dialog-error", error);
+          },
+          visible: () => true,
+          highlight: () => {},
+        },
+        {
+          available: true,
+          action: async (method, payload) => {
+            calls.push({ method, payload });
+            document.querySelector("#fixture-calls").textContent =
+              JSON.stringify(calls);
+            if (method === "task-list")
+              return [...tasks.values()].map(({ id, name, intervalMs }) => ({
+                id,
+                name,
+                intervalMs,
+              }));
+            if (method === "task-statuses") return structuredClone(statuses);
+            if (method === "task-start") {
+              statuses[payload.id] = {
+                running: true,
+                phase: "运行中",
+                executed: 0,
+                step: 0,
+                error: null,
+                variables: {},
+                logs: [],
+              };
+              return statuses[payload.id];
+            }
+            if (method === "task-stop") {
+              statuses[payload] = {
+                ...statuses[payload],
+                running: false,
+                phase: "已停止",
+              };
+              return statuses[payload];
+            }
+            if (method === "task-load") {
+              if (location.search.includes("slow") && payload === ids[0])
+                await new Promise((resolve) => setTimeout(resolve, 2000));
+              return structuredClone(tasks.get(payload));
+            }
+            if (method === "task-save") {
+              if (payload.schemaVersion !== 2 || "source" in payload)
+                throw new Error("Invalid task metadata");
+              tasks.set(payload.id, structuredClone(payload));
+              return {};
+            }
+            if (method === "task-delete") {
+              tasks.delete(payload);
+              return {};
+            }
+            return {};
+          },
+        },
+      );
+      await manager.refresh();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,10 @@
+{
+  "tag_name": "v1.1",
+  "body": "Legacy DF-AutomatedTool release",
+  "draft": false,
+  "prerelease": false,
+  "assets": [
+    { "name": "dan-duan-gou-mai.json.json" },
+    { "name": "DF-AutomatedTool1.1.zip" }
+  ]
+}

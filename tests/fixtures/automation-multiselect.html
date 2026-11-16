@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><link rel="stylesheet" href="/src/styles.css"><title>多选测试</title></head>
+<body style="display:block;overflow:auto;padding:20px">
+<div id="automation-dialog" style="display:block"><div id="workspace" style="width:1000px;height:700px"></div></div>
+<script type="module">
+import { createBlocklyWorkspace } from "/src/automation-blockly-workspace.ts";
+const normalSteps = [
+  {delayMs:0,action:{type:"wait",ms:1000}},
+  {delayMs:0,action:{type:"wait",ms:2000}},
+  {delayMs:0,action:{type:"if",expression:"result > 0"}},
+  {delayMs:0,action:{type:"wait",ms:3000}},
+  {delayMs:0,action:{type:"wait",ms:4000}},
+  {delayMs:0,action:{type:"endIf"}},
+  {delayMs:0,action:{type:"wait",ms:5000}}
+];
+const steps = new URLSearchParams(location.search).has("long") ? Array.from({length:14},(_,index)=>({delayMs:0,action:{type:"wait",ms:1000*(index+1)}})) : normalSteps;
+const editor = createBlocklyWorkspace(document.querySelector("#workspace"),{names:{},running:()=>false,update:()=>{},notify:()=>{},slots:()=>[]});
+editor.render(steps);
+</script></body></html>

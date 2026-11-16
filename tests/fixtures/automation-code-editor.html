@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="/src/styles.css" />
+    <title>动作序列编辑器测试</title>
+  </head>
+  <body style="display: block; overflow: auto; padding: 24px">
+    <section id="automation-dialog">
+      <p>测试夹具 · 无原生动作执行</p>
+      <button id="lock">模拟运行锁定</button
+      ><button id="unlock">解除锁定</button
+      ><button id="current">定位内部步骤</button>
+      <div id="code" class="block-workspace" tabindex="0"></div>
+      <pre id="output"></pre>
+      <p id="notice"></p>
+    </section>
+    <script type="module">
+      import { createBlockEditor } from "/src/automation-block-editor.ts";
+      let running = false;
+      let steps = [
+        { delayMs: 0, action: { type: "loop", count: 3 } },
+        { delayMs: 0, action: { type: "if", expression: "1 == 1" } },
+        { delayMs: 0, action: { type: "wait", ms: 25 } },
+        { delayMs: 0, action: { type: "endIf" } },
+        { delayMs: 0, action: { type: "endLoop" } },
+      ];
+      const output = document.querySelector("#output");
+      const editor = createBlockEditor(document.querySelector("#code"), {
+        names: { loop: "循环", if: "如果", wait: "等待" },
+        running: () => running,
+        slots: () => ["A", "B"],
+        change: (next) => {
+          steps = next;
+          output.textContent = JSON.stringify(steps);
+          editor.render(steps);
+        },
+        update: (next) => {
+          steps = next;
+          output.textContent = JSON.stringify(steps);
+        },
+        notify: (text) =>
+          (document.querySelector("#notice").textContent = text),
+      });
+      output.textContent = JSON.stringify(steps);
+      editor.render(steps);
+      document.querySelector("#lock").onclick = () => {
+        running = true;
+        editor.setRunning(true);
+      };
+      document.querySelector("#unlock").onclick = () => {
+        running = false;
+        editor.setRunning(false);
+      };
+      document.querySelector("#current").onclick = () =>
+        editor.highlight({ running: true, step: 2 });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,11 @@
+[package]
+name = "moligod-crosshair-module"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+moligod-core = { path = "../../crates/core" }
+moligod-crosshair = { path = "../../crates/crosshair" }
+moligod-module-protocol = { path = "../../crates/module-protocol" }
+serde_json.workspace = true
+base64 = "0.22"

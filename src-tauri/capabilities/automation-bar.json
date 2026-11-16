@@ -1,0 +1,1 @@
+{"identifier":"automation-status-bar","description":"Passive execution status events only.","windows":["automation-status-bar"],"permissions":["core:event:allow-listen","core:event:allow-unlisten"]}

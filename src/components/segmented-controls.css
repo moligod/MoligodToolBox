@@ -1,0 +1,75 @@
+/* Copyright (c) 2026 moligod. SPDX-License-Identifier: GPL-3.0-only */
+:root :is(#automation-dialog, #page-tools) [data-slot="segmented-controls"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+:root
+  :is(#automation-dialog, #page-tools)
+  [data-slot="segmented-controls"]
+  > button {
+  position: relative;
+  flex: 0 0 auto;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: var(--panel-header);
+  color: var(--muted);
+  transition:
+    color 140ms,
+    background-color 140ms;
+}
+
+:root
+  :is(#automation-dialog, #page-tools)
+  [data-slot="segmented-controls"]
+  > button:is(
+    [aria-selected="true"],
+    [aria-pressed="true"],
+    [aria-expanded="true"]
+  ) {
+  border-color: var(--line-strong);
+  background: var(--hover);
+  color: var(--text);
+}
+
+:root
+  :is(#automation-dialog, #page-tools)
+  [data-slot="segmented-controls"]
+  > button:is(
+    [aria-selected="true"],
+    [aria-pressed="true"],
+    [aria-expanded="true"]
+  )::after {
+  content: "";
+  position: absolute;
+  inset: auto 5px 1px;
+  height: 0;
+  border-bottom: 2px solid currentColor;
+  background: none;
+}
+
+:root
+  :is(#automation-dialog, #page-tools)
+  [data-slot="segmented-controls"]
+  > button:hover:not(:disabled) {
+  background: var(--hover);
+  color: var(--text);
+}
+
+:root
+  :is(#automation-dialog, #page-tools)
+  [data-slot="segmented-controls"]
+  > button:focus-visible {
+  outline: 2px solid var(--line-strong);
+  outline-offset: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root
+    :is(#automation-dialog, #page-tools)
+    [data-slot="segmented-controls"]
+    > button {
+    transition: none;
+  }
+}

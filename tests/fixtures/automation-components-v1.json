@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "components": [
+    {
+      "id": "b10c0000-0000-4000-8000-000000000001",
+      "name": "旧组件",
+      "block": {
+        "type": "moligod_action",
+        "extraState": {
+          "step": {
+            "delayMs": 0,
+            "action": { "type": "group", "name": "旧组件", "steps": [{ "delayMs": 0, "action": { "type": "wait", "ms": 1000 } }] }
+          }
+        }
+      }
+    },
+    {
+      "id": "b10c0000-0000-4000-8000-000000000002",
+      "name": "缩放组件",
+      "scale": 125,
+      "block": {
+        "type": "moligod_action",
+        "extraState": {
+          "step": {
+            "delayMs": 0,
+            "action": { "type": "group", "name": "缩放组件", "steps": [{ "delayMs": 0, "action": { "type": "wait", "ms": 2000 } }] }
+          }
+        }
+      }
+    }
+  ]
+}

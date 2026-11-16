@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>模板选点测试</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <main style="padding: 24px">
+      <button id="open">选择保存位置</button>
+      <p id="saved">尚未保存</p>
+    </main>
+    <script type="module">
+      import { createTemplatePointPicker } from "/src/automation-template-point.ts";
+      const picker = createTemplatePointPicker(document.body);
+      const canvas = document.createElement("canvas");
+      canvas.width = 240;
+      canvas.height = 120;
+      const context = canvas.getContext("2d");
+      context.fillStyle = "#426b92";
+      context.fillRect(0, 0, 240, 120);
+      context.fillStyle = "#b9ed79";
+      context.fillRect(0, 0, 80, 60);
+      const png = canvas.toDataURL("image/png").split(",")[1];
+      let point;
+      document.querySelector("#open").onclick = () =>
+        picker.open(png, point, (value) => {
+          point = value;
+          document.querySelector("#saved").textContent =
+            `已保存 (${value.x}, ${value.y})`;
+        });
+    </script>
+  </body>
+</html>

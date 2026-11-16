@@ -1,0 +1,91 @@
+.app-version {
+  position: relative;
+  padding: 3px 6px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+}
+.app-version:not(:disabled):hover {
+  background: var(--hover);
+}
+.app-version:disabled {
+  cursor: default;
+  opacity: 1;
+}
+.app-version.has-update::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ed5252;
+}
+.github-dialog {
+  width: min(520px, calc(100vw - 28px));
+  max-height: calc(100dvh - 28px);
+  padding: 18px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--text);
+  overflow-y: auto;
+}
+.github-dialog h2 {
+  margin: 0 0 14px;
+}
+.github-dialog .dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+.github-dialog button {
+  min-height: 30px;
+  padding: 5px 12px;
+}
+.github-dialog .dialog-error {
+  color: #ed9393;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.github-dialog .github-status {
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+.github-dialog .app-update-notes {
+  max-height: 180px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+  color: var(--muted);
+}
+.official-component-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.official-component-row > div {
+  min-width: 0;
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+.official-component-row p {
+  margin: 5px 0 0;
+  color: var(--muted);
+}
+.official-component-row > button {
+  flex-shrink: 0;
+}
+dialog.github-dialog:modal {
+  overscroll-behavior: contain;
+}
+dialog.github-dialog::backdrop {
+  background: #0008;
+  overflow: hidden;
+  overscroll-behavior: contain;
+}

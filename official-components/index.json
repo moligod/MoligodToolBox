@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "components": [
+    {
+      "id": "wait-one-second",
+      "name": "等待1秒",
+      "description": "等待1秒的基础组件，可用于熟悉导入和组合动作。"
+    }
+  ]
+}

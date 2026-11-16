@@ -1,0 +1,9 @@
+[package]
+name = "moligod-storage"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+moligod-core = { path = "../core" }
+serde_json.workspace = true
+tempfile.workspace = true

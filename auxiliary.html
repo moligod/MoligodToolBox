@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>工具子窗口</title>
+    <link rel="stylesheet" href="/src/auxiliary.css" />
+    <script type="module" src="/src/auxiliary.ts"></script>
+  </head>
+  <body>
+    <div class="aux-titlebar" data-tauri-drag-region>
+      <span data-tauri-drag-region
+        >moligod ·
+        <span id="aux-window-title" data-tauri-drag-region
+          >工具子窗口</span
+        ></span
+      >
+      <nav aria-label="窗口控制">
+        <button id="aux-minimize" aria-label="最小化" title="最小化">−</button>
+        <button
+          id="aux-maximize"
+          aria-label="最大化或还原"
+          title="最大化或还原"
+        >
+          □
+        </button>
+        <button id="aux-close" aria-label="关闭" title="关闭">×</button>
+      </nav>
+    </div>
+    <main>
+      <header>
+        <h1 id="aux-title">工具子窗口</h1>
+      </header>
+      <p id="aux-status" role="status">正在加载…</p>
+      <section id="aux-ocr" hidden>
+        <label for="aux-text">OCR 输出结果</label
+        ><textarea id="aux-text" readonly spellcheck="false"></textarea
+        ><button id="aux-copy">复制结果</button>
+      </section>
+      <section id="aux-image-panel" hidden>
+        <div id="aux-image-stage">
+          <img
+            id="aux-image"
+            alt="目标窗口截图，按住拖动框选区域"
+            draggable="false"
+          />
+          <div id="aux-selection" hidden></div>
+        </div>
+        <footer>
+          <span id="aux-coordinates">请选择区域</span
+          ><button id="aux-confirm" disabled>使用选区</button>
+        </footer>
+      </section>
+    </main>
+  </body>
+</html>

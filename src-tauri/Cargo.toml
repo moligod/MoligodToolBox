@@ -1,0 +1,30 @@
+[package]
+name = "moligod"
+version.workspace = true
+edition.workspace = true
+description = "moligod game companion"
+authors = ["moligod"]
+
+[lib]
+name = "moligod_lib"
+crate-type = ["rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-single-instance = "2"
+tauri-plugin-opener = "2"
+tauri-plugin-updater = "2"
+reqwest = { version = "0.13", default-features = false, features = ["rustls"] }
+semver = "1"
+moligod-core = { path = "../crates/core" }
+moligod-storage = { path = "../crates/storage" }
+moligod-module-host = { path = "../crates/module-host" }
+serde.workspace = true
+serde_json.workspace = true
+base64 = "0.22"
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Com", "Win32_UI_Shell"] }

@@ -1,0 +1,363 @@
+.game-editor-dialog {
+  width: min(1120px, calc(100vw - 48px));
+  max-height: min(880px, calc(100vh - 52px));
+  overflow: auto;
+  padding: 0;
+  background:
+    radial-gradient(circle at 9% 0%, #48603c22 0, transparent 32%), #1f252b;
+  border: 1px solid #566253;
+  border-radius: 12px;
+  color: #edf1f3;
+  box-shadow: 0 28px 100px #000b;
+}
+.game-editor-dialog::backdrop {
+  background: #050a0dbf;
+  backdrop-filter: blur(3px);
+}
+.game-editor-form {
+  min-width: 0;
+}
+.game-editor-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 24px 28px 20px;
+  border-bottom: 1px solid #3d4742;
+  background: #20272bdb;
+}
+.game-editor-eyebrow {
+  margin: 0 0 6px;
+  color: #bcef75;
+  font:
+    600 10px "Segoe UI Variable",
+    "Microsoft YaHei UI",
+    sans-serif;
+  letter-spacing: 2px;
+}
+.game-editor-heading h2 {
+  margin: 0;
+  font-size: 22px;
+  letter-spacing: 0.4px;
+}
+.game-editor-heading-hint {
+  margin: 7px 0 0;
+  color: #a4afa8;
+  font-size: 12px;
+}
+.game-editor-close {
+  display: grid;
+  width: 31px;
+  height: 31px;
+  flex: 0 0 31px;
+  place-items: center;
+  border: 1px solid #4a554f;
+  border-radius: 6px;
+  background: #2b3431;
+  color: #c8d1ca;
+  font-size: 22px;
+  line-height: 1;
+}
+.game-editor-close:hover {
+  color: #fff;
+  border-color: #84957b;
+  background: #374237;
+}
+.game-editor-body {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.92fr) minmax(380px, 1.08fr);
+  gap: 28px;
+  padding: 26px 28px 20px;
+}
+.game-editor-media,
+.game-editor-fields {
+  min-width: 0;
+}
+.game-editor-media {
+  display: flex;
+  flex-direction: column;
+  gap: 17px;
+}
+.game-editor-image-card,
+.game-editor-screenshots {
+  padding: 16px;
+  border: 1px solid #3b4740;
+  border-radius: 8px;
+  background: #18201e8a;
+}
+.game-editor-image-heading,
+.game-editor-screenshot-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.game-editor-image-heading strong,
+.game-editor-screenshot-heading strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+}
+.game-editor-image-heading span,
+.game-editor-screenshot-heading span {
+  display: block;
+  margin-top: 5px;
+  color: #8d9b92;
+  font-size: 10px;
+  line-height: 1.4;
+}
+.game-editor-image-preview {
+  position: relative;
+  display: grid;
+  min-height: 145px;
+  overflow: hidden;
+  place-items: center;
+  border: 1px dashed #506057;
+  border-radius: 6px;
+  background:
+    linear-gradient(135deg, #29382f88, #17201d),
+    repeating-linear-gradient(45deg, #ffffff03 0 8px, transparent 8px 16px);
+}
+.game-editor-hero-preview {
+  min-height: 112px;
+}
+.game-editor-image-preview > span {
+  margin: 0;
+  color: #95a69a;
+  font-size: 11px;
+}
+.game-editor-image-preview img {
+  width: 100%;
+  height: 100%;
+  min-height: inherit;
+  object-fit: cover;
+}
+.game-editor-image-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 11px;
+}
+.game-editor-image-actions button {
+  padding: 7px 11px;
+  font-size: 11px;
+}
+.game-editor-remove,
+.game-editor-screenshot-remove {
+  border: 1px solid #725252;
+  border-radius: 4px;
+  background: #432c30;
+  color: #f0bbbb;
+}
+.game-editor-remove:hover,
+.game-editor-screenshot-remove:hover {
+  border-color: #c27676;
+  background: #59343a;
+}
+.game-editor-screenshots {
+  padding-bottom: 14px;
+}
+.game-editor-screenshot-heading {
+  align-items: center;
+  margin-bottom: 10px;
+}
+.game-editor-screenshot-heading .secondary {
+  padding: 7px 11px;
+  font-size: 11px;
+}
+.game-editor-screenshot-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.game-editor-screenshot-empty {
+  grid-column: 1 / -1;
+  padding: 20px 10px;
+  border: 1px dashed #46554d;
+  border-radius: 5px;
+  color: #8f9d94;
+  font-size: 11px;
+  text-align: center;
+}
+.game-editor-screenshot {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid #4b5a51;
+  border-radius: 5px;
+  background: #111916;
+}
+.game-editor-screenshot img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.game-editor-screenshot-remove {
+  position: absolute;
+  right: 5px;
+  top: 5px;
+  padding: 4px 6px;
+  font-size: 10px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.game-editor-screenshot:hover .game-editor-screenshot-remove,
+.game-editor-screenshot:focus-within .game-editor-screenshot-remove {
+  opacity: 1;
+}
+.game-editor-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  padding: 1px 0;
+}
+.game-editor-field {
+  display: block;
+  min-width: 0;
+}
+.game-editor-label {
+  display: block;
+  margin-bottom: 7px;
+  color: #c8d0ca;
+  font-size: 12px;
+}
+.game-editor-field input,
+.game-editor-field textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #3e4b44;
+  border-radius: 5px;
+  outline: 0;
+  background: #171e1c;
+  color: #ebefec;
+  font:
+    13px "Segoe UI Variable",
+    "Microsoft YaHei UI",
+    sans-serif;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+.game-editor-field input {
+  height: 37px;
+  padding: 8px 10px;
+}
+.game-editor-field textarea {
+  min-height: 122px;
+  padding: 10px;
+  line-height: 1.6;
+  resize: vertical;
+}
+.game-editor-field input::placeholder,
+.game-editor-field textarea::placeholder {
+  color: #68776e;
+}
+.game-editor-field input:focus,
+.game-editor-field textarea:focus {
+  border-color: #a9df78;
+  box-shadow: 0 0 0 3px #a9df781c;
+}
+.game-editor-field input:disabled,
+.game-editor-field textarea:disabled {
+  background: #151a18;
+  color: #8d978f;
+}
+.game-editor-two-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+}
+.game-editor-featured {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: fit-content;
+  margin-top: 2px;
+  color: #c2cdc5;
+  font-size: 12px;
+  cursor: pointer;
+}
+.game-editor-featured input {
+  width: 16px;
+  height: 16px;
+  accent-color: #bcef75;
+}
+.game-editor-error {
+  margin: 0 28px 4px;
+  padding: 10px 12px;
+  border: 1px solid #9d6063;
+  border-radius: 5px;
+  background: #4c2b30;
+  color: #ffd3d3;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.game-editor-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 17px 28px 23px;
+  border-top: 1px solid #3a4440;
+  background: #1d2421;
+}
+.game-editor-actions button {
+  min-width: 100px;
+}
+.game-editor-upload-state {
+  margin-right: auto;
+  color: #c7eaaa;
+  font-size: 11px;
+}
+.game-editor-saving {
+  cursor: progress;
+}
+.game-editor-saving .game-editor-heading-hint::after {
+  content: " 正在保存…";
+  color: #d3edb5;
+}
+@media (max-width: 880px) {
+  .game-editor-dialog {
+    width: min(720px, calc(100vw - 30px));
+  }
+  .game-editor-body {
+    grid-template-columns: 1fr;
+  }
+  .game-editor-media {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .game-editor-screenshots {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 590px) {
+  .game-editor-dialog {
+    width: calc(100vw - 18px);
+  }
+  .game-editor-heading,
+  .game-editor-body {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+  .game-editor-body,
+  .game-editor-media {
+    display: flex;
+  }
+  .game-editor-two-fields {
+    grid-template-columns: 1fr;
+  }
+  .game-editor-actions {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .game-editor-screenshot-remove,
+  .game-editor-field input,
+  .game-editor-field textarea {
+    transition: none;
+  }
+}

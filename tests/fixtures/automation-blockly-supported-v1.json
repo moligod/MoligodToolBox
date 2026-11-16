@@ -1,0 +1,260 @@
+{
+  "schemaVersion": 1,
+  "name": "现有动作兼容夹具",
+  "缩放": 150,
+  "repeats": 2,
+  "maxRunSeconds": 3600,
+  "startDelayMs": 30,
+  "intervalMs": 1000,
+  "steps": [
+    {
+      "delayMs": 1,
+      "action": {
+        "type": "setWindow",
+        "target": "Z",
+        "title": "旧窗口"
+      }
+    },
+    {
+      "delayMs": 2,
+      "action": {
+        "type": "focus",
+        "target": "Z"
+      }
+    },
+    {
+      "delayMs": 3,
+      "randomDelayMs": 8,
+      "annotation": "保留注解",
+      "action": {
+        "type": "wait",
+        "ms": 1234
+      }
+    },
+    {
+      "delayMs": 4,
+      "action": {
+        "type": "click",
+        "target": "Z",
+        "mode": "background",
+        "x": 20,
+        "y": 40,
+        "button": "right",
+        "holdMs": 45,
+        "jitter": 4
+      }
+    },
+    {
+      "delayMs": 5,
+      "action": {
+        "type": "drag",
+        "target": "window:旧窗口",
+        "mode": "foreground",
+        "fromX": 10,
+        "fromY": 20,
+        "toX": 30,
+        "toY": 40,
+        "button": "left",
+        "durationMs": 500
+      }
+    },
+    {
+      "delayMs": 6,
+      "action": {
+        "type": "scroll",
+        "target": "Z",
+        "mode": "background",
+        "x": 30,
+        "y": 40,
+        "delta": -240
+      }
+    },
+    {
+      "delayMs": 7,
+      "action": {
+        "type": "key",
+        "keys": [
+          17,
+          65
+        ],
+        "holdMs": 35
+      }
+    },
+    {
+      "delayMs": 8,
+      "action": {
+        "type": "text",
+        "target": "Z",
+        "text": "第一行\n第二行 中文"
+      }
+    },
+    {
+      "delayMs": 9,
+      "action": {
+        "type": "ocr",
+        "target": "Z",
+        "ocrModel": "tiny",
+        "region": {
+          "x": 1,
+          "y": 2,
+          "width": 100,
+          "height": 40
+        },
+        "variable": "single",
+        "numbersOnly": true,
+        "reuse": true
+      }
+    },
+    {
+      "delayMs": 11,
+      "action": {
+        "type": "match",
+        "target": "Z",
+        "region": {
+          "x": 1,
+          "y": 2,
+          "width": 100,
+          "height": 40
+        },
+        "template": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        "threshold": 0.93,
+        "variable": "matched"
+      }
+    },
+    {
+      "delayMs": 12,
+      "action": {
+        "type": "capture",
+        "target": "Z",
+        "region": {
+          "x": 1,
+          "y": 2,
+          "width": 100,
+          "height": 40
+        },
+        "name": "图片",
+        "directory": "D:\\截图"
+      }
+    },
+    {
+      "delayMs": 13,
+      "action": {
+        "type": "set",
+        "variable": "value",
+        "value": 123
+      }
+    },
+    {
+      "delayMs": 15,
+      "action": {
+        "type": "calculate",
+        "variable": "total",
+        "expression": "value + 1"
+      }
+    },
+    {
+      "delayMs": 16,
+      "action": {
+        "type": "regex",
+        "variable": "single",
+        "pattern": "\\d+",
+        "result": "ok"
+      }
+    },
+    {
+      "delayMs": 17,
+      "action": {
+        "type": "assert",
+        "expression": "total > 0",
+        "message": "必须大于零"
+      }
+    },
+    {
+      "delayMs": 0,
+      "annotation": "分组注解",
+      "action": {
+        "type": "group",
+        "name": "嵌套组",
+        "steps": [
+          {
+            "delayMs": 19,
+            "action": {
+              "type": "loop",
+              "count": 3
+            }
+          },
+          {
+            "delayMs": 20,
+            "action": {
+              "type": "if",
+              "expression": "total > 1"
+            }
+          },
+          {
+            "delayMs": 21,
+            "action": {
+              "type": "continue"
+            }
+          },
+          {
+            "delayMs": 22,
+            "randomDelayMs": 12,
+            "annotation": "分支注解",
+            "action": {
+              "type": "elseIf",
+              "expression": "total == 1"
+            }
+          },
+          {
+            "delayMs": 23,
+            "action": {
+              "type": "break"
+            }
+          },
+          {
+            "delayMs": 24,
+            "action": {
+              "type": "else"
+            }
+          },
+          {
+            "delayMs": 25,
+            "action": {
+              "type": "comment",
+              "text": "否则内容"
+            }
+          },
+          {
+            "delayMs": 26,
+            "randomDelayMs": 13,
+            "annotation": "条件尾部",
+            "action": {
+              "type": "endIf"
+            }
+          },
+          {
+            "delayMs": 27,
+            "randomDelayMs": 14,
+            "action": {
+              "type": "endLoop"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "delayMs": 28,
+      "action": {
+        "type": "label",
+        "name": "done"
+      }
+    },
+    {
+      "delayMs": 29,
+      "action": {
+        "type": "goto",
+        "label": "done"
+      }
+    }
+  ]
+}

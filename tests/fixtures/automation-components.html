@@ -1,0 +1,42 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>组件库测试</title><link rel="stylesheet" href="/src/styles.css"></head>
+<body style="display:block;padding:20px"><div id="automation-dialog" style="display:block"><div id="workspace" style="width:1100px;height:750px"></div></div>
+<script type="module">
+import {createBlocklyWorkspace} from '/src/automation-blockly-workspace.ts';
+import {scriptToWorkspace} from '/src/automation-blockly-codec.ts';
+import {actionIssues} from '/src/automation-action-draft.ts';
+const showWarnings = new URLSearchParams(location.search).has('warnings');
+let components=[];
+if (new URLSearchParams(location.search).has('seed')) {
+  components=['首个组件','第二个组件'].map((name,index)=>({id:`b10c0000-0000-4000-8000-00000000000${index+1}`,name,scale:100,block:scriptToWorkspace([{delayMs:0,action:{type:'group',name,steps:[{delayMs:0,action:{type:'wait',ms:1000}}]}}]).blocks.blocks[0].inputs.BODY.block}));
+}
+if (new URLSearchParams(location.search).has('many')) {
+  components=Array.from({length:25},(_,index)=>{const name=`组件${index+1}`;return {id:`b10c0000-0000-4000-8000-${String(index+1).padStart(12,'0')}`,name,scale:100,block:scriptToWorkspace([{delayMs:0,action:{type:'group',name,steps:[{delayMs:0,action:{type:'wait',ms:1000}}]}}]).blocks.blocks[0].inputs.BODY.block};});
+}
+if (new URLSearchParams(location.search).has('wide')) {
+  components=['较长的组件名称用于查看完整标题和横向预览一','横向预览二'].map((name,index)=>({
+    id:`b10c0000-0000-4000-8000-00000000000${index+1}`,name,scale:100,
+    block:scriptToWorkspace([{delayMs:0,action:{type:'group',name,steps:[
+      {delayMs:0,action:{type:'notify',text:'这是一段用于检查横向预览的较长内容'.repeat(4)}},
+      {delayMs:0,action:{type:'wait',ms:1000}},
+    ]}}]).blocks.blocks[0].inputs.BODY.block,
+  }));
+}
+const backend={list:async()=>structuredClone(components),add:async item=>(components.push(structuredClone(item)),structuredClone(components)),remove:async id=>(components=components.filter(item=>item.id!==id),structuredClone(components)),rename:async(id,name)=>{const item=components.find(item=>item.id===id);item.name=name;item.block.extraState.step.action.name=name;return structuredClone(components)},move:async(id,targetId,after)=>{const [item]=components.splice(components.findIndex(item=>item.id===id),1);components.splice(components.findIndex(item=>item.id===targetId)+(after?1:0),0,item);return structuredClone(components)}};
+backend.import = async text => {
+  const library = JSON.parse(text);
+  if (library.schemaVersion !== 1 || !Array.isArray(library.components)) throw new Error('组件库版本或格式无效');
+  const incoming = library.components.map(item => ({...item, id: crypto.randomUUID()}));
+  components.push(...incoming);
+  return structuredClone(components);
+};
+let saved=[];
+const editor=createBlocklyWorkspace(document.querySelector('#workspace'),{names:{wait:'等待'},categories:[{id:'basic',label:'基础操作',actions:[{type:'wait',name:'等待'},{type:'notify',name:'提示'}]},{id:'input',label:'鼠标键盘',actions:['keyDown','keyUp','click','key','text'].map(type=>({type,name:type}))}],scale:()=>100,componentBackend:backend,running:()=>false,issues:step=>showWarnings?actionIssues(step,()=>false):[],update:steps=>{saved=structuredClone(steps)},notify:text=>{document.querySelector('#message').textContent=text},slots:()=>[]});
+editor.render(showWarnings
+  ? Array.from({length:3},()=>({delayMs:0,action:{type:'click',target:'',x:215,y:240,button:'left'}}))
+  : [{delayMs:0,action:{type:'wait',ms:1000}},{delayMs:0,action:{type:'wait',ms:2000}},{delayMs:0,action:{type:'wait',ms:3000}}]);
+window.testComponents={get:()=>structuredClone(components),saved:()=>structuredClone(saved)};
+document.querySelector('#check-clipboard').addEventListener('click', async () => {
+  try { document.querySelector('#clipboard-code').value = await navigator.clipboard.readText(); }
+  catch (error) { document.querySelector('#message').textContent = String(error); }
+});
+</script><p id="message"></p><button id="check-clipboard" type="button">读取已复制代码（测试）</button><textarea id="clipboard-code" aria-label="导出代码校验" readonly></textarea></body></html>

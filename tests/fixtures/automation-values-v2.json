@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 2,
+  "name": "嵌套取值验收",
+  "repeats": 1,
+  "maxRunSeconds": 10,
+  "startDelayMs": 0,
+  "steps": [
+    {"delayMs":0,"action":{"type":"set","variable":"seconds","value":0}},
+    {"delayMs":0,"action":{"type":"wait","ms":1000},"inputs":{"schemaVersion":1,"values":{"seconds":{"kind":"variable","name":"seconds","valueType":"number"}}}},
+    {"delayMs":0,"action":{"type":"set","variable":"total","value":0},"inputs":{"schemaVersion":1,"values":{"value":{"kind":"binary","op":"+","left":{"kind":"literal","value":1},"right":{"kind":"binary","op":"*","left":{"kind":"literal","value":2},"right":{"kind":"literal","value":3}}}}}},
+    {"delayMs":0,"action":{"type":"holdUntil","expression":"false","timeoutMs":1000,"intervalMs":100},"inputs":{"schemaVersion":1,"values":{"expression":{"kind":"binary","op":"==","left":{"kind":"variable","name":"total","valueType":"number"},"right":{"kind":"literal","value":7}}}}},
+    {"delayMs":0,"action":{"type":"waitUntil","expression":"false","timeoutMs":1000,"intervalMs":100},"inputs":{"schemaVersion":1,"values":{"expression":{"kind":"binary","op":">=","left":{"kind":"variable","name":"total","valueType":"number"},"right":{"kind":"literal","value":9}}}}},
+    {"delayMs":0,"action":{"type":"calculate","variable":"total","expression":"total+1"}},
+    {"delayMs":0,"action":{"type":"endWaitUntil"}},
+    {"delayMs":0,"action":{"type":"notify","text":""},"inputs":{"schemaVersion":1,"values":{"text":{"kind":"literal","value":"嵌套完成 ${这是文字}"}}}}
+  ]
+}

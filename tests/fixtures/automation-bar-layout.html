@@ -1,0 +1,16 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>状态栏布局测试</title><link rel="stylesheet" href="/src/automation-bar.css"></head>
+<body><main id="status"></main><script type="module">
+import {renderAutomationBar,measureAutomationBar} from '/src/automation-bar-view.ts';
+const query=new URLSearchParams(location.search);
+const notice=query.has('long') ? '这是很长的提示内容，用于检查在第一行填满后才换行。'.repeat(8) : query.has('none') ? '' : 'result';
+const row={taskName:'新任务3',phase:'stopped',round:1,step:4,totalSteps:16,stopHotkey:'Ctrl + 3',ocrModel:'tiny',ocrDevice:'cpu',running:false,notice};
+const host=document.querySelector('#status');
+const rows=query.has('multi') ? [row,{...row,taskName:'任务二',notice:'第二条提示'},{...row,taskName:'任务三',notice:''}] : [row];
+const maxWidth=query.has('narrow') ? 320 : 800;
+renderAutomationBar(host,{revision:1,maxWidth,rows});
+const size=measureAutomationBar(host,maxWidth);
+document.body.style.width=`${size.width}px`;
+document.body.style.height=`${size.height}px`;
+document.body.dataset.width=String(size.width);
+document.body.dataset.height=String(size.height);
+</script></body></html>
