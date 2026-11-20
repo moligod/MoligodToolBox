@@ -1,0 +1,350 @@
+{
+  "schemaVersion": 1,
+  "components": [
+    {
+      "block": {
+        "extraState": {
+          "branches": [
+            {
+              "key": "0"
+            }
+          ],
+          "step": {
+            "action": {
+              "name": "三角洲单端1K分辨率",
+              "steps": [],
+              "type": "group"
+            },
+            "delayMs": 0
+          }
+        },
+        "inputs": {
+          "BODY_0": {
+            "block": {
+              "extraState": {
+                "branches": [
+                  {
+                    "key": "0"
+                  }
+                ],
+                "step": {
+                  "action": {
+                    "count": 9999,
+                    "type": "loop"
+                  },
+                  "annotation": "执行次数，一共运行多少次\n",
+                  "delayMs": 0,
+                  "randomDelayMs": 0
+                },
+                "tail": {
+                  "action": {
+                    "type": "endLoop"
+                  },
+                  "delayMs": 0,
+                  "randomDelayMs": 0
+                }
+              },
+              "inputs": {
+                "BODY_0": {
+                  "block": {
+                    "extraState": {
+                      "step": {
+                        "action": {
+                          "target": "window:三角洲行动  ",
+                          "type": "focus"
+                        },
+                        "annotation": "自动找到三角洲窗口，切换到三角洲窗口\n\n",
+                        "delayMs": 0,
+                        "randomDelayMs": 0
+                      }
+                    },
+                    "next": {
+                      "block": {
+                        "extraState": {
+                          "step": {
+                            "action": {
+                              "button": "left",
+                              "holdMs": 30,
+                              "jitter": 0,
+                              "mode": "foreground",
+                              "target": "window:三角洲行动  ",
+                              "type": "click",
+                              "x": 224,
+                              "y": 243
+                            },
+                            "annotation": "点击侧边栏收藏，刷新收藏的物品价格",
+                            "delayMs": 0,
+                            "randomDelayMs": 0
+                          }
+                        },
+                        "next": {
+                          "block": {
+                            "extraState": {
+                              "step": {
+                                "action": {
+                                  "numbersOnly": true,
+                                  "numericResult": true,
+                                  "ocrModel": "small",
+                                  "region": {
+                                    "height": 39,
+                                    "width": 66,
+                                    "x": 833,
+                                    "y": 296
+                                  },
+                                  "reuse": true,
+                                  "target": "window:三角洲行动  ",
+                                  "type": "ocr",
+                                  "variable": "result"
+                                },
+                                "annotation": "读取第一个物品的价格",
+                                "delayMs": 0,
+                                "randomDelayMs": 0
+                              }
+                            },
+                            "next": {
+                              "block": {
+                                "extraState": {
+                                  "branches": [
+                                    {
+                                      "key": "0"
+                                    }
+                                  ],
+                                  "step": {
+                                    "action": {
+                                      "expression": "",
+                                      "type": "if"
+                                    },
+                                    "annotation": "如果这个物品价格小于464就执行，否则不执行",
+                                    "delayMs": 0,
+                                    "inputs": {
+                                      "schemaVersion": 1,
+                                      "values": {
+                                        "expression": {
+                                          "kind": "binary",
+                                          "left": {
+                                            "kind": "variable",
+                                            "name": "result",
+                                            "valueType": "number"
+                                          },
+                                          "op": "<",
+                                          "right": {
+                                            "kind": "literal",
+                                            "value": 464
+                                          }
+                                        }
+                                      }
+                                    },
+                                    "randomDelayMs": 0
+                                  },
+                                  "tail": {
+                                    "action": {
+                                      "type": "endIf"
+                                    },
+                                    "delayMs": 0,
+                                    "randomDelayMs": 0
+                                  }
+                                },
+                                "inputs": {
+                                  "BODY_0": {
+                                    "block": {
+                                      "extraState": {
+                                        "step": {
+                                          "action": {
+                                            "button": "left",
+                                            "holdMs": 30,
+                                            "jitter": 0,
+                                            "mode": "foreground",
+                                            "target": "window:三角洲行动  ",
+                                            "type": "click",
+                                            "x": 722,
+                                            "y": 262
+                                          },
+                                          "annotation": "小于这个价格说明该购买了，点击进入物品详情\n",
+                                          "delayMs": 0,
+                                          "randomDelayMs": 0
+                                        }
+                                      },
+                                      "next": {
+                                        "block": {
+                                          "extraState": {
+                                            "step": {
+                                              "action": {
+                                                "ms": 800,
+                                                "type": "wait"
+                                              },
+                                              "annotation": "等待物品详情加载时间\n",
+                                              "delayMs": 0,
+                                              "randomDelayMs": 0
+                                            }
+                                          },
+                                          "inputs": {
+                                            "VALUE_seconds": {
+                                              "shadow": {
+                                                "extraState": {
+                                                  "value": {
+                                                    "kind": "literal",
+                                                    "value": 0.8
+                                                  }
+                                                },
+                                                "type": "moligod_value"
+                                              }
+                                            }
+                                          },
+                                          "next": {
+                                            "block": {
+                                              "extraState": {
+                                                "step": {
+                                                  "action": {
+                                                    "button": "left",
+                                                    "holdMs": 30,
+                                                    "jitter": 0,
+                                                    "mode": "foreground",
+                                                    "target": "window:三角洲行动  ",
+                                                    "type": "click",
+                                                    "x": 1732,
+                                                    "y": 774
+                                                  },
+                                                  "annotation": "选择购买数量数量200个",
+                                                  "delayMs": 0,
+                                                  "randomDelayMs": 0
+                                                }
+                                              },
+                                              "next": {
+                                                "block": {
+                                                  "extraState": {
+                                                    "step": {
+                                                      "action": {
+                                                        "button": "left",
+                                                        "holdMs": 30,
+                                                        "jitter": 0,
+                                                        "mode": "foreground",
+                                                        "target": "window:三角洲行动  ",
+                                                        "type": "click",
+                                                        "x": 1632,
+                                                        "y": 858
+                                                      },
+                                                      "annotation": "点击购买",
+                                                      "delayMs": 0,
+                                                      "randomDelayMs": 0
+                                                    }
+                                                  },
+                                                  "next": {
+                                                    "block": {
+                                                      "extraState": {
+                                                        "step": {
+                                                          "action": {
+                                                            "holdMs": 30,
+                                                            "keys": [27],
+                                                            "type": "key"
+                                                          },
+                                                          "annotation": "按ESC返回交易行界面",
+                                                          "delayMs": 0,
+                                                          "randomDelayMs": 0
+                                                        }
+                                                      },
+                                                      "type": "moligod_action"
+                                                    }
+                                                  },
+                                                  "type": "moligod_action"
+                                                }
+                                              },
+                                              "type": "moligod_action"
+                                            }
+                                          },
+                                          "type": "moligod_action"
+                                        }
+                                      },
+                                      "type": "moligod_action"
+                                    }
+                                  },
+                                  "VALUE_expression": {
+                                    "block": {
+                                      "extraState": {
+                                        "value": {
+                                          "kind": "binary",
+                                          "left": {
+                                            "kind": "variable",
+                                            "name": "result",
+                                            "valueType": "number"
+                                          },
+                                          "op": "<",
+                                          "right": {
+                                            "kind": "literal",
+                                            "value": 464
+                                          }
+                                        }
+                                      },
+                                      "inputs": {
+                                        "LEFT": {
+                                          "block": {
+                                            "extraState": {
+                                              "value": {
+                                                "kind": "variable",
+                                                "name": "result",
+                                                "valueType": "number"
+                                              }
+                                            },
+                                            "type": "moligod_value"
+                                          },
+                                          "shadow": {
+                                            "extraState": {
+                                              "value": {
+                                                "kind": "literal",
+                                                "value": 0
+                                              }
+                                            },
+                                            "type": "moligod_value"
+                                          }
+                                        },
+                                        "RIGHT": {
+                                          "shadow": {
+                                            "extraState": {
+                                              "value": {
+                                                "kind": "literal",
+                                                "value": 464
+                                              }
+                                            },
+                                            "type": "moligod_value"
+                                          }
+                                        }
+                                      },
+                                      "type": "moligod_value"
+                                    }
+                                  }
+                                },
+                                "type": "moligod_action"
+                              }
+                            },
+                            "type": "moligod_action"
+                          }
+                        },
+                        "type": "moligod_action"
+                      }
+                    },
+                    "type": "moligod_action"
+                  }
+                },
+                "VALUE_count": {
+                  "shadow": {
+                    "extraState": {
+                      "value": {
+                        "kind": "literal",
+                        "value": 9999
+                      }
+                    },
+                    "type": "moligod_value"
+                  }
+                }
+              },
+              "type": "moligod_action"
+            }
+          }
+        },
+        "type": "moligod_action"
+      },
+      "id": "cccf6a27-a0a3-4d1d-91d3-247f13355716",
+      "name": "三角洲单端1K分辨率",
+      "scale": 125
+    }
+  ]
+}

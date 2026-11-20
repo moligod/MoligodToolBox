@@ -10,6 +10,11 @@
       "id": "delta-force-single-1920",
       "name": "三角洲单端1920分辨率",
       "description": "单端1920分辨率流程，原始缩放125%。循环9999次，OCR数值小于464时执行后续点击、等待和Esc操作。"
+    },
+    {
+      "id": "delta-force-single-1k",
+      "name": "三角洲单端1K分辨率",
+      "description": "带逐步注解的单端1K分辨率流程，原始缩放125%。循环9999次，OCR数字result小于464时执行购买流程。"
     }
   ]
 }
