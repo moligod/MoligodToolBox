@@ -46,6 +46,9 @@ export function stepSummary(step: Step, names: Record<string, string>): string {
     case "wait":
       text = `等待 ${(Number(a.ms) + (step.delayMs || 0)) / 1000} 秒`;
       break;
+    case "scheduleStart":
+      text = `定时启动 ${a.time}（按本机时间，当天已过则等到次日）`;
+      break;
     case "click":
       text = `在${window}${point}点击${({ left: "左键", right: "右键", middle: "中键" } as Record<string, string>)[String(a.button)] ?? a.button}`;
       break;
@@ -98,7 +101,7 @@ export function stepSummary(step: Step, names: Record<string, string>): string {
       text = `如果 ${a.stopWhenTrue === true ? a.expression : `!(${a.expression})`} 则停止任务`;
       break;
     case "notify":
-      text = `提示：${a.text}`;
+      text = `运行提示：${a.text}`;
       break;
     case "group":
       text = `分组：${a.name}`;

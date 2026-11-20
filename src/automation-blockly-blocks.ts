@@ -34,6 +34,7 @@ export interface BlockServices {
   slots: () => string[];
   configure: (block: ActionBlock) => void;
   editComment: (block: ActionBlock, value: string) => void;
+  editAnnotation: (block: ActionBlock, value: string) => void;
   branch: (block: ActionBlock, kind: "elseIf" | "else" | "remove") => void;
   refresh: () => Promise<void>;
   saveComponent?: (block: ActionBlock) => void;
@@ -189,10 +190,11 @@ function shape(this: ActionBlock, state: ActionState) {
           keyDown: "按住按键",
           keyUp: "松开按键",
           runTask: "运行任务",
+          scheduleStart: "定时启动",
           waitUntil: "重复执行直到",
           holdUntil: "保持等待直到",
           text: "输入文字",
-          notify: "提示",
+          notify: "运行提示",
           loop: "重复",
           break: "退出循环",
           goto: "跳到",
@@ -285,6 +287,7 @@ function shape(this: ActionBlock, state: ActionState) {
     );
   };
   if (type === "wait") {slot("seconds","number");this.appendDummyInput("UNIT").appendField("秒");}
+  if (type === "scheduleStart") property("time", "");
   if (["waitUntil","holdUntil"].includes(type)) {
     slot("expression","boolean");
     this.appendEndRowInput("CONDITION_END");

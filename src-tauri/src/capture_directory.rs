@@ -67,6 +67,21 @@ fn pick(owner: isize) -> Result<Option<String>, String> {
             .map_err(|e| e.to_string())?;
         let result = path.to_string().map_err(|e| e.to_string());
         CoTaskMemFree(Some(path.0.cast()));
-        result.map(Some)
+        let path = result?;
+        // The automation engine refuses non-drive paths; say so at selection time.
+        if !drive_path(&path) {
+            return Err("截图不能保存到网络位置，请选择本机磁盘文件夹或已映射的驱动器".into());
+        }
+        Ok(Some(path))
     }
+}
+
+#[cfg(windows)]
+fn drive_path(path: &str) -> bool {
+    use std::path::{Component, Prefix};
+    matches!(
+        std::path::Path::new(path).components().next(),
+        Some(Component::Prefix(prefix))
+            if matches!(prefix.kind(), Prefix::Disk(_) | Prefix::VerbatimDisk(_))
+    )
 }

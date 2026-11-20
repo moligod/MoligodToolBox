@@ -81,6 +81,19 @@ function closeTab(page: string) {
   showPage(tabs.current());
 }
 
+/** Tool windows hide instead of closing, so mirror hide/show as the page close/activate
+ * lifecycle: hiding releases idle native modules, showing reopens them on demand. */
+export function setToolPageVisible(page: string, visible: boolean) {
+  const target = section(page);
+  if (!target || target.hidden !== visible) return;
+  if (visible) {
+    showPage(page);
+    return;
+  }
+  target.hidden = true;
+  target.dispatchEvent(new Event("close"));
+}
+
 export function initNavigation() {
   document
     .getElementById("workspace-home")!

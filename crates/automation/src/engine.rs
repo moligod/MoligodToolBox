@@ -11,6 +11,12 @@ use std::{
 
 pub trait Driver {
     fn set_scale(&mut self, _scale: Option<u32>) {}
+    fn local_time_ms(&self) -> Result<u64, String> {
+        Err("当前驱动不支持定时启动".into())
+    }
+    /// Identity (hwnd, pid) of the window a found position was captured from. The next
+    /// input action must hit that same window, even if its slot was rebound since.
+    fn expect_window(&mut self, _window: Option<(u64, u32)>) {}
     fn resolve_window(&mut self, _title: &str) -> Result<BoundWindow, String> {
         Err("当前驱动不支持设置窗口".into())
     }
@@ -59,6 +65,33 @@ fn flatten_steps(steps: &[Step], depth: u8, out: &mut Vec<Step>) -> Result<(), S
     }
     Ok(())
 }
+fn schedule_time_ms(time: &str) -> Result<u64, String> {
+    let invalid = || "定时启动请输入 24 小时制 HH:mm:ss".to_string();
+    let &[h1, h2, b':', m1, m2, b':', s1, s2] = time.as_bytes() else {
+        return Err(invalid());
+    };
+    let pair = |first: u8, last: u8| {
+        (first.is_ascii_digit() && last.is_ascii_digit())
+            .then(|| u64::from(first - b'0') * 10 + u64::from(last - b'0'))
+            .ok_or_else(invalid)
+    };
+    let (hour, minute, second) = (pair(h1, h2)?, pair(m1, m2)?, pair(s1, s2)?);
+    if hour >= 24 || minute >= 60 || second >= 60 {
+        return Err(invalid());
+    }
+    Ok((hour * 3600 + minute * 60 + second) * 1000)
+}
+
+fn schedule_target_ms(now: u64, time: u64) -> u64 {
+    const DAY_MS: u64 = 86_400_000;
+    let today = now - now % DAY_MS + time;
+    if today < now {
+        today + DAY_MS
+    } else {
+        today
+    }
+}
+
 impl Plan {
     pub fn compile(mut script: Script) -> Result<Self, String> {
         if script
@@ -70,7 +103,7 @@ impl Plan {
         let mut flattened = Vec::new();
         flatten_steps(&script.steps, 0, &mut flattened)?;
         script.steps = flattened;
-        if ![1, 2, 3, 4].contains(&script.schema_version)
+        if !(1..=5).contains(&script.schema_version)
             || script.name.trim().is_empty()
             || script.name.len() > 100
             || script.steps.is_empty()
@@ -159,6 +192,12 @@ impl Plan {
             }
             match &step.action {
                 Action::Wait { ms } if *ms > 3600000 => return Err("单次等待超过 1 小时".into()),
+                Action::ScheduleStart { time } => {
+                    if plan.script.schema_version < 5 {
+                        return Err("定时启动需要脚本版本5".into());
+                    }
+                    schedule_time_ms(time)?;
+                }
                 Action::Click {
                     x,
                     y,
@@ -186,7 +225,7 @@ impl Plan {
                     return Err("拖动坐标或时长无效".into())
                 }
                 Action::Scroll { x, y, delta, .. }
-                    if *x < 0 || *y < 0 || *delta == 0 || delta.abs() > 1200 =>
+                    if *x < 0 || *y < 0 || *delta == 0 || !(-1200..=1200).contains(delta) =>
                 {
                     return Err("滚动参数无效".into())
                 }
@@ -340,23 +379,24 @@ impl Plan {
                     stack.push((i, true, Vec::new()));
                 }
                 Action::WaitUntil { .. } => stack.push((i, true, Vec::new())),
-                Action::ElseIf { .. } | Action::Else => {
+                Action::ElseIf { .. } | Action::Else {} => {
                     let (_, is_loop, branches) = stack.last_mut().ok_or("分支缺少 If")?;
                     if *is_loop {
                         return Err("分支跨越循环".into());
                     }
                     if branches
                         .iter()
-                        .any(|b| matches!(plan.script.steps[*b].action, Action::Else))
+                        .any(|b| matches!(plan.script.steps[*b].action, Action::Else {}))
                     {
                         return Err("Else 之后不能再添加分支".into());
                     }
                     branches.push(i);
                 }
-                Action::EndIf | Action::EndLoop | Action::EndWaitUntil => {
+                Action::EndIf {} | Action::EndLoop {} | Action::EndWaitUntil {} => {
                     let (start, is_loop, branches) = stack.pop().ok_or("多余的结束步骤")?;
-                    if is_loop != matches!(step.action, Action::EndLoop | Action::EndWaitUntil)
-                        || matches!(step.action, Action::EndWaitUntil)
+                    if is_loop
+                        != matches!(step.action, Action::EndLoop {} | Action::EndWaitUntil {})
+                        || matches!(step.action, Action::EndWaitUntil {})
                             != matches!(plan.script.steps[start].action, Action::WaitUntil { .. })
                     {
                         return Err("控制块结束类型不匹配".into());
@@ -371,7 +411,7 @@ impl Plan {
                         }
                     }
                 }
-                Action::Break | Action::Continue => {
+                Action::Break {} | Action::Continue {} => {
                     if !stack.iter().any(|(_, is_loop, _)| *is_loop) {
                         return Err("Break/Continue 必须位于循环内".into());
                     }
@@ -549,6 +589,31 @@ impl Plan {
                 }
                 let mut next = pc + 1;
                 match &step.action {
+                    Action::ScheduleStart { time } => {
+                        let mut now = driver.local_time_ms()?;
+                        let target = schedule_target_ms(now, schedule_time_ms(time)?);
+                        if now < target {
+                            let notice = status.notice.replace(format!("等待定时启动 {time}"));
+                            status.phase = "scheduled".into();
+                            report(status.clone());
+                            let stopped = loop {
+                                if wait(Duration::from_millis((target - now).min(1000)))? {
+                                    break true;
+                                }
+                                now = driver.local_time_ms()?;
+                                if now >= target {
+                                    break false;
+                                }
+                            };
+                            status.notice = notice;
+                            if stopped {
+                                break 'outer;
+                            }
+                            status.phase = "running".into();
+                            report(status.clone());
+                            emitted = Instant::now();
+                        }
+                    }
                     Action::Wait { ms } => {
                         let duration = if let Some(value) = self.input(
                             pc,
@@ -625,14 +690,14 @@ impl Plan {
                             next = self.next[pc];
                         }
                     }
-                    Action::Else => {
+                    Action::Else {} => {
                         if branches.contains(&self.end[pc]) {
                             next = self.end[pc];
                         } else {
                             branches.insert(self.end[pc]);
                         }
                     }
-                    Action::EndIf => {
+                    Action::EndIf {} => {
                         branches.remove(&pc);
                     }
                     Action::Loop { count } => {
@@ -698,7 +763,7 @@ impl Plan {
                         );
                         loops.push((pc, 0));
                     }
-                    Action::EndWaitUntil => {
+                    Action::EndWaitUntil {} => {
                         let (start, _) = *loops.last().ok_or("等待条件缺少开始")?;
                         let result = self.condition(
                             start,
@@ -733,7 +798,7 @@ impl Plan {
                         }
                     }
                     Action::RunTask { .. } => return Err("子任务尚未展开".into()),
-                    Action::EndLoop => {
+                    Action::EndLoop {} => {
                         let (start, remaining) = loops.last_mut().ok_or("循环栈无效")?;
                         if *remaining == 0 {
                             next = *start + 1;
@@ -744,12 +809,12 @@ impl Plan {
                             loops.pop();
                         }
                     }
-                    Action::Break => {
+                    Action::Break {} => {
                         let (start, _) = loops.pop().ok_or("没有可退出的循环")?;
                         next = self.end[start] + 1;
                         branches.retain(|end| *end >= next);
                     }
-                    Action::Continue => {
+                    Action::Continue {} => {
                         let (start, _) = loops.last().ok_or("没有可继续的循环")?;
                         next = self.end[*start];
                         branches.retain(|end| *end >= next);
@@ -825,6 +890,7 @@ impl Plan {
                     }
                     action => {
                         let mut position_scale = None;
+                        let mut position_window = None;
                         let expanded = if let Action::Click {
                             position: Some(name),
                             target,
@@ -861,6 +927,14 @@ impl Plan {
                             if position_scale.is_none() {
                                 return Err("位置变量缺少有效缩放信息".into());
                             }
+                            // The slot name alone is not enough: SetWindow may have
+                            // rebound it to another window since the image was found.
+                            position_window = point["hwnd"]
+                                .as_u64()
+                                .zip(point["pid"].as_u64().and_then(|v| u32::try_from(v).ok()));
+                            if position_window.is_none() {
+                                return Err("位置变量缺少窗口信息，请重新查找图片".into());
+                            }
                             *position = None;
                             Some(resolved)
                         } else if let Action::Text { target, text } = action {
@@ -885,6 +959,9 @@ impl Plan {
                         if let Some(scale) = position_scale {
                             driver.set_scale(Some(scale));
                         }
+                        if position_window.is_some() {
+                            driver.expect_window(position_window);
+                        }
                         let performed = driver
                             .perform(
                                 expanded.as_ref().unwrap_or(action),
@@ -894,6 +971,9 @@ impl Plan {
                             .map_err(|e| format!("第 {} 步：{e}", status.step + 1));
                         if position_scale.is_some() {
                             driver.set_scale(self.script.scale);
+                        }
+                        if position_window.is_some() {
+                            driver.expect_window(None);
                         }
                         if action_cancel.is_cancelled() && !cancel.is_cancelled() {
                             return Err(timeout.into());
@@ -923,9 +1003,20 @@ impl Plan {
             }
             if (self.script.repeats == 0 || iteration < self.script.repeats)
                 && self.script.interval_ms > 0
-                && cancel.wait(Duration::from_millis(u64::from(self.script.interval_ms)))
             {
-                break;
+                // The pause between repeats counts toward the maximum run time. Ending
+                // here also drops the driver, which releases any keys still held.
+                let run_deadline =
+                    started + Duration::from_secs(u64::from(self.script.max_run_seconds));
+                if cancel
+                    .with_deadline(run_deadline)
+                    .wait(Duration::from_millis(u64::from(self.script.interval_ms)))
+                {
+                    if cancel.is_cancelled() {
+                        break;
+                    }
+                    return Err("达到脚本最长运行时间".into());
+                }
             }
         }
         status.running = false;
@@ -987,6 +1078,17 @@ pub fn capture_directory(
         _ => Err("截图保存位置必须是完整文件夹路径".into()),
     }
 }
+/// Screenshots are written only under a drive-letter path. UNC and device paths
+/// (\\server\share, \\?\UNC\..., \\.\...) could send window pixels off this machine
+/// without any local choice, e.g. from an imported script. Mapped drives need local setup.
+pub fn local_capture_path(path: &std::path::Path) -> bool {
+    use std::path::{Component, Prefix};
+    matches!(
+        path.components().next(),
+        Some(Component::Prefix(prefix))
+            if matches!(prefix.kind(), Prefix::Disk(_) | Prefix::VerbatimDisk(_))
+    )
+}
 pub fn safe_name(name: &str) -> bool {
     !name.is_empty()
         && name.len() <= 64
@@ -1011,6 +1113,93 @@ pub(crate) fn validate_region(r: &Region) -> Result<(), String> {
 mod tests {
     use super::*;
     use std::collections::BTreeMap;
+
+    #[test]
+    fn scheduled_start_validates_clock_time_version_and_next_day() {
+        let start = |time: &str| Action::ScheduleStart { time: time.into() };
+        let mut source = script(vec![start("12:00:00")]);
+        assert!(Plan::compile(source.clone())
+            .err()
+            .unwrap()
+            .contains("版本5"));
+        source.schema_version = 5;
+        assert!(Plan::compile(source.clone()).is_ok());
+        for invalid in ["24:00:00", "12:60:00", "12:00:60", "1:00:00", "12:00:00\n"] {
+            source.steps[0].action = start(invalid);
+            assert!(Plan::compile(source.clone())
+                .err()
+                .unwrap()
+                .contains("HH:mm:ss"));
+        }
+        const DAY: u64 = 86_400_000;
+        let noon = schedule_time_ms("12:00:00").unwrap();
+        assert_eq!(schedule_target_ms(DAY + noon - 1, noon), DAY + noon);
+        assert_eq!(schedule_target_ms(DAY + noon, noon), DAY + noon);
+        assert_eq!(schedule_target_ms(DAY + noon + 1, noon), DAY * 2 + noon);
+        assert_eq!(schedule_target_ms(DAY - 1, 0), DAY);
+    }
+
+    #[test]
+    fn scheduled_start_waits_across_midnight_and_can_be_cancelled() {
+        struct Clock(std::cell::Cell<u64>);
+        impl Driver for Clock {
+            fn local_time_ms(&self) -> Result<u64, String> {
+                let now = self.0.get();
+                self.0.set(now + 1);
+                Ok(now)
+            }
+            fn perform(
+                &mut self,
+                _: &Action,
+                _: &Bindings,
+                _: &Cancellation,
+            ) -> Result<Option<(String, Value)>, String> {
+                panic!("定时与提示不得发送原生输入")
+            }
+        }
+        let mut source = script(vec![
+            Action::ScheduleStart {
+                time: "00:00:00".into(),
+            },
+            Action::Notify {
+                text: "到点".into(),
+            },
+        ]);
+        source.schema_version = 5;
+        let plan = Plan::compile(source).unwrap();
+        for stop in [false, true] {
+            let token = Cancellation::default();
+            let mut waiting_seen = false;
+            let status = plan
+                .run(
+                    &mut Clock(std::cell::Cell::new(86_399_999)),
+                    &Bindings::new(),
+                    &token,
+                    |update| {
+                        if update.phase == "scheduled" {
+                            waiting_seen = true;
+                            assert_eq!(update.step, 0);
+                            assert_eq!(update.notice.as_deref(), Some("等待定时启动 00:00:00"));
+                            if stop {
+                                token.cancel();
+                            }
+                        }
+                    },
+                )
+                .unwrap();
+            assert!(waiting_seen);
+            if stop {
+                assert_eq!(status.phase, "stopped");
+                assert_eq!(status.executed, 1);
+                assert_eq!(status.notice, None);
+            } else {
+                assert_eq!(status.phase, "completed");
+                assert_eq!(status.executed, 2);
+                assert_eq!(status.notice.as_deref(), Some("到点"));
+            }
+        }
+    }
+
     #[test]
     fn regex_if_selects_the_branch_without_an_intermediate_action() {
         let plan = Plan::compile(script(vec![
@@ -1025,12 +1214,12 @@ mod tests {
                 variable: "matched".into(),
                 value: json!(true),
             },
-            Action::Else,
+            Action::Else {},
             Action::Set {
                 variable: "matched".into(),
                 value: json!(false),
             },
-            Action::EndIf,
+            Action::EndIf {},
         ]))
         .unwrap();
         let status = plan
@@ -1059,6 +1248,27 @@ mod tests {
         for invalid in ["", "relative", "../escape", "bad\0path"] {
             assert!(capture_directory(dir.path(), Some(invalid)).is_err());
         }
+        assert!(local_capture_path(
+            &capture_directory(dir.path(), None).unwrap()
+        ));
+        assert!(local_capture_path(&selected));
+        for local in [r"C:\captures", r"\\?\C:\captures", r"Z:\mapped"] {
+            assert!(local_capture_path(std::path::Path::new(local)), "{local}");
+        }
+        for network in [
+            r"\\server\share\captures",
+            "//server/share/captures",
+            r"\\?\UNC\server\share",
+            r"\\.\pipe\capture",
+            r"\\localhost\c$\captures",
+        ] {
+            assert!(
+                !local_capture_path(std::path::Path::new(network)),
+                "{network}"
+            );
+        }
+        // Saved tasks with a network folder still open for editing; only writing is refused.
+        assert!(capture_directory(dir.path(), Some(r"\\server\share")).is_ok());
         let legacy = json!({"type":"capture","target":"A","region":{"x":0,"y":0,"width":10,"height":10},"name":"capture"});
         let old: Action = serde_json::from_value(legacy.clone()).unwrap();
         assert!(serde_json::to_value(old)
@@ -1073,6 +1283,23 @@ mod tests {
         configured["directory"] = json!("relative");
         let action: Action = serde_json::from_value(configured).unwrap();
         assert!(Plan::compile(script(vec![action])).is_err());
+    }
+    #[test]
+    fn scroll_delta_range_check_cannot_overflow() {
+        let scroll = |delta| {
+            let action: Action = serde_json::from_value(
+                json!({"type":"scroll","target":"A","x":2,"y":3,"delta":delta}),
+            )
+            .unwrap();
+            Plan::compile(script(vec![action]))
+        };
+        for delta in [-1200, -120, 1, 1200] {
+            assert!(scroll(delta).is_ok(), "{delta}");
+        }
+        // i32::MIN has no positive counterpart; abs() used to panic or wrap here.
+        for delta in [0, -1201, 1201, i32::MIN, i32::MAX] {
+            assert!(scroll(delta).is_err(), "{delta}");
+        }
     }
     struct NoIo;
     #[test]
@@ -1179,6 +1406,43 @@ mod tests {
             panic!("unexpected IO")
         }
     }
+    #[test]
+    fn repeat_interval_counts_toward_max_run_time_and_still_stops_promptly() {
+        let mut source = script(vec![Action::Wait { ms: 1 }]);
+        source.repeats = 2;
+        source.max_run_seconds = 1;
+        source.interval_ms = 3_600_000;
+        let plan = Plan::compile(source.clone()).unwrap();
+        let started = Instant::now();
+        let error = plan
+            .run(
+                &mut NoIo,
+                &Bindings::new(),
+                &Cancellation::default(),
+                |_| {},
+            )
+            .unwrap_err();
+        assert!(error.contains("最长运行时间"), "{error}");
+        assert!(started.elapsed() < Duration::from_secs(5));
+
+        source.max_run_seconds = 60;
+        let plan = Plan::compile(source).unwrap();
+        let cancel = Cancellation::default();
+        let stopper = {
+            let cancel = cancel.clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(Duration::from_millis(50));
+                cancel.cancel();
+            })
+        };
+        let started = Instant::now();
+        let status = plan
+            .run(&mut NoIo, &Bindings::new(), &cancel, |_| {})
+            .unwrap();
+        stopper.join().unwrap();
+        assert_eq!(status.phase, "stopped");
+        assert!(started.elapsed() < Duration::from_secs(5));
+    }
     fn script(actions: Vec<Action>) -> Script {
         Script {
             execution_map: Vec::new(),
@@ -1220,7 +1484,7 @@ mod tests {
                 variable: "count".into(),
                 expression: "count+1".into(),
             },
-            Action::EndWaitUntil,
+            Action::EndWaitUntil {},
         ];
         let status = Plan::compile(script(actions))
             .unwrap()
@@ -1258,8 +1522,8 @@ mod tests {
                 interval_ms: 100,
             },
             Action::Focus { target: Slot::A },
-            Action::EndWaitUntil,
-            Action::EndWaitUntil,
+            Action::EndWaitUntil {},
+            Action::EndWaitUntil {},
         ]))
         .unwrap();
         assert!(plan
@@ -1269,7 +1533,7 @@ mod tests {
         assert!(start.elapsed() < Duration::from_secs(1));
         assert!(!token.is_cancelled());
         let mut wrong = plan.script.clone();
-        wrong.steps.last_mut().unwrap().action = Action::EndLoop;
+        wrong.steps.last_mut().unwrap().action = Action::EndLoop {};
         assert!(Plan::compile(wrong).is_err());
     }
     #[test]
@@ -1281,7 +1545,7 @@ mod tests {
                 interval_ms: 100,
             },
             Action::Wait { ms: 60000 },
-            Action::EndWaitUntil,
+            Action::EndWaitUntil {},
         ]))
         .unwrap();
         let start = Instant::now();
@@ -1301,7 +1565,7 @@ mod tests {
                 timeout_ms: 60000,
                 interval_ms: 60000,
             },
-            Action::EndWaitUntil,
+            Action::EndWaitUntil {},
         ]))
         .unwrap();
         let token = Cancellation::default();
@@ -1316,14 +1580,19 @@ mod tests {
     }
     #[test]
     fn found_position_feeds_click_with_its_scale_and_rejects_missing_or_wrong_window() {
+        type Window = Option<(u64, u32)>;
         struct Points {
             point: Value,
             scale: Option<u32>,
-            clicks: Vec<(i32, i32, Option<u32>)>,
+            window: Window,
+            clicks: Vec<(i32, i32, Option<u32>, Window)>,
         }
         impl Driver for Points {
             fn set_scale(&mut self, scale: Option<u32>) {
                 self.scale = scale;
+            }
+            fn expect_window(&mut self, window: Option<(u64, u32)>) {
+                self.window = window;
             }
             fn perform(
                 &mut self,
@@ -1337,7 +1606,7 @@ mod tests {
                     }
                     Action::Click { x, y, position, .. } => {
                         assert!(position.is_none());
-                        self.clicks.push((*x, *y, self.scale));
+                        self.clicks.push((*x, *y, self.scale, self.window));
                         Ok(None)
                     }
                     _ => panic!("unexpected IO"),
@@ -1353,8 +1622,9 @@ mod tests {
         source.scale = Some(100);
         let plan = Plan::compile(source).unwrap();
         let mut driver = Points {
-            point: json!({"x":45,"y":80,"scale":150,"target":"A"}),
+            point: json!({"x":45,"y":80,"scale":150,"target":"A","hwnd":7,"pid":42}),
             scale: None,
+            window: None,
             clicks: Vec::new(),
         };
         plan.run(
@@ -1364,13 +1634,17 @@ mod tests {
             |_| {},
         )
         .unwrap();
-        assert_eq!(driver.clicks, [(45, 80, Some(150))]);
+        // The click carries the captured window identity; it is cleared afterwards.
+        assert_eq!(driver.clicks, [(45, 80, Some(150), Some((7, 42)))]);
         assert_eq!(driver.scale, Some(100));
+        assert_eq!(driver.window, None);
         for point in [
             Value::Null,
             json!(true),
-            json!({"x":1,"y":2,"scale":150,"target":"B"}),
-            json!({"x":1,"y":2,"scale":0,"target":"A"}),
+            json!({"x":1,"y":2,"scale":150,"target":"B","hwnd":7,"pid":42}),
+            json!({"x":1,"y":2,"scale":0,"target":"A","hwnd":7,"pid":42}),
+            json!({"x":1,"y":2,"scale":150,"target":"A"}),
+            json!({"x":1,"y":2,"scale":150,"target":"A","hwnd":7,"pid":-1}),
         ] {
             driver.point = point;
             driver.clicks.clear();
@@ -1463,7 +1737,7 @@ mod tests {
                     target: Slot::A,
                     title: "skipped".into(),
                 },
-                Action::EndIf,
+                Action::EndIf {},
                 Action::Focus { target: Slot::A },
             ],
             vec![
@@ -1525,17 +1799,17 @@ mod tests {
             Action::If {
                 expression: "x == 2".into(),
             },
-            Action::Continue,
+            Action::Continue {},
             Action::ElseIf {
                 expression: "x >= 3".into(),
             },
-            Action::Break,
-            Action::Else,
+            Action::Break {},
+            Action::Else {},
             Action::Comment {
                 text: "first".into(),
             },
-            Action::EndIf,
-            Action::EndLoop,
+            Action::EndIf {},
+            Action::EndLoop {},
         ]))
         .unwrap();
         let result = plan
@@ -1550,7 +1824,7 @@ mod tests {
     }
     #[test]
     fn rejects_bad_control_flow_before_input() {
-        assert!(Plan::compile(script(vec![Action::Else])).is_err());
+        assert!(Plan::compile(script(vec![Action::Else {}])).is_err());
         assert!(Plan::compile(script(vec![Action::Loop { count: 1 }])).is_err());
         assert!(Plan::compile(script(vec![Action::Goto {
             label: "missing".into()

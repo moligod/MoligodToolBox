@@ -27,7 +27,12 @@ export class ActionSelection {
 }
 
 /** Select action cards without changing the serialized script or Blockly's drag behavior. */
-export function installActionSelection(host: HTMLElement, workspace: Blockly.WorkspaceSvg, notify: (message: string, error?: boolean) => void) {
+export function installActionSelection(
+  host: HTMLElement,
+  workspace: Blockly.WorkspaceSvg,
+  notify: (message: string, error?: boolean) => void,
+  showCommentShortcut: (block?: ActionBlock) => void,
+) {
   const selection = new ActionSelection();
   const listeners = new AbortController();
   const style = document.createElement("style");
@@ -80,6 +85,9 @@ export function installActionSelection(host: HTMLElement, workspace: Blockly.Wor
     for (const block of workspace.getAllBlocks(false)) {
       if (block.type === ACTION_BLOCK) (block as Blockly.BlockSvg).getSvgRoot().classList.toggle("auto-action-selected", selection.ids.has(block.id));
     }
+    const id = selection.ids.size === 1 ? selection.ids.values().next().value : undefined;
+    const block = id ? (workspace.getBlockById(id) as ActionBlock | null) : null;
+    showCommentShortcut(block && block.payload.step.action.type !== "comment" ? block : undefined);
   }
   function clear() { pending = undefined; removePreview(); selection.clear(); paint(); }
   function ordered(block: Blockly.Block): string[] {
@@ -102,11 +110,11 @@ export function installActionSelection(host: HTMLElement, workspace: Blockly.Wor
   function down(event: PointerEvent) {
     if (![0,2].includes(event.button) || workspace.isReadOnly() || !(event.target instanceof Element) || !host.contains(event.target) || event.target.closest(".blocklyFlyout, .blocklyToolbox")) return;
     const target = event.target;
-    if (target.closest("[role=button], input, textarea, select, .blocklyEditableField")) return;
+    if (target.closest("button, [role=button], input, textarea, select, .blocklyEditableField")) return;
     const node = target.closest<SVGGElement>("g.blocklyBlock[data-id]");
     const block = node && workspace.getBlockById(node.dataset.id!);
     if (!block || block.type !== ACTION_BLOCK || block.isInsertionMarker()) {
-      if (event.button === 0 && target.closest(".blocklyMainBackground")) clear();
+      if (event.button === 0 && (block || target.closest(".blocklyMainBackground"))) clear();
       return;
     }
     if (event.button === 2) {

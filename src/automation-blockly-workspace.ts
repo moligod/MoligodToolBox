@@ -30,8 +30,7 @@ import type { BlocklyOptions } from "./automation-blockly.ts";
 import type { Step } from "./automation-editor";
 import { actionToolbox } from "./automation-blockly-toolbox.ts";
 import { createWorkspaceControls } from "./automation-blockly-controls.ts";
-import { CommentField } from "./automation-blockly-comment.ts";
-import { standaloneComments } from "./automation-comment-migration.ts";
+import { CommentField, createCommentShortcut, renderAnnotation } from "./automation-blockly-comment.ts";
 import { explicitInputWindows } from "./automation-input-migration.ts";
 import { installFlyoutPickup } from "./automation-blockly-pickup.ts";
 import { DockedToolbox, DockedFlyout } from "./automation-blockly-dock.ts";
@@ -55,6 +54,12 @@ class CompactKeyInfo extends Blockly.zelos.RenderInfo {
 }
 class CompactKeyRenderer extends Blockly.zelos.Renderer {
   protected override makeRenderInfo_(block: Blockly.BlockSvg) { return new CompactKeyInfo(this, block); }
+  override render(block: Blockly.BlockSvg) {
+    super.render(block);
+    if (block.type !== ACTION_BLOCK || block.workspace.isFlyout || block.isInsertionMarker()) return;
+    const edit = services.get(block.workspace)?.editAnnotation;
+    if (edit) renderAnnotation(block as ActionBlock, edit);
+  }
 }
 Blockly.blockRendering.register("moligod-compact", CompactKeyRenderer);
 // Blockly reserves five pixels around the handle: 9px gives a 4px visible bar.
@@ -185,7 +190,11 @@ export function createBlocklyWorkspace(
   const flyout = workspace.getFlyout();
   if (flyout instanceof Blockly.Flyout) flyout.setAutoClose(false);
   const pickup = installFlyoutPickup(host, workspace);
-  const actionSelection = installActionSelection(host, workspace, options.notify);
+  const actionSelection = installActionSelection(
+    host, workspace, options.notify, createCommentShortcut(block => {
+      if (!running && !options.running()) renderAnnotation(block, editAnnotation, true);
+    }),
+  );
   const components = installComponents(workspace, actionSelection.roots, () => options.scale?.(), options.notify, options.componentBackend);
   const disposeWarningDismissal = installWarningDismissal(workspace, options.notify);
   scrolling.init({
@@ -290,6 +299,9 @@ export function createBlocklyWorkspace(
     } finally {
       Blockly.Events.enable();
     }
+    publishMutation(block, before);
+  }
+  function publishMutation(block: ActionBlock, before: string) {
     const after = JSON.stringify(block.readState());
     if (before !== after)
       Blockly.Events.fire(
@@ -328,12 +340,14 @@ export function createBlocklyWorkspace(
     const before = JSON.stringify(block.readState());
     block.getField("text")?.setValue(value, false);
     block.payload.step.action.text = value;
-    const after = JSON.stringify(block.readState());
-    if (before !== after)
-      Blockly.Events.fire(
-        new Blockly.Events.BlockChange(block, "mutation", null, before, after),
-      );
-    publish();
+    publishMutation(block, before);
+  }
+  function editAnnotation(block: ActionBlock, value: string) {
+    if (workspace.isReadOnly()) return;
+    const before = JSON.stringify(block.readState());
+    if (value) block.payload.step.annotation = value;
+    else delete block.payload.step.annotation;
+    publishMutation(block, before);
   }
   const complex = configuredActions;
   function configure(block: ActionBlock) {
@@ -359,6 +373,7 @@ export function createBlocklyWorkspace(
     configure,
     saveComponent: block => { actionSelection.selectForContext(block); components.save(); },
     editComment,
+    editAnnotation,
     branch,
     refresh: async () => {
       try {
@@ -425,7 +440,7 @@ export function createBlocklyWorkspace(
     try {
       const idle = !running && !options.running();
       pendingMigration = idle ? undefined : structuredClone(steps);
-      const state = scriptToWorkspace(idle ? standaloneComments(explicitInputWindows(steps)) : steps);
+      const state = scriptToWorkspace(idle ? explicitInputWindows(steps) : steps);
       Blockly.serialization.workspaces.load(state, workspace);
       workspace.clearUndo();
       lastPublished = JSON.stringify(steps);
@@ -538,10 +553,12 @@ export function createBlocklyWorkspace(
       cancelDrag();
     }
     workspace.setIsReadOnly(running);
-    for (const block of actions())
+    for (const block of actions()) {
+      renderAnnotation(block, editAnnotation);
       for (const input of block.inputList)
         for (const field of input.fieldRow)
           if (field instanceof CommentField) field.updateEditable();
+    }
     controls.setRunning(running);
     host.classList.toggle("auto-blockly-running", running);
     if (!running && !options.running() && !loading && pendingMigration) {

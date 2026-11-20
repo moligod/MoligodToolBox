@@ -20,7 +20,9 @@ use windows::Win32::System::WinRT::{RoInitialize, RoUninitialize, RO_INIT_MULTIT
 use windows_sys::Win32::{
     Foundation::*,
     Graphics::Gdi::*,
-    System::Threading::GetCurrentThreadId,
+    System::{
+        SystemInformation::GetLocalTime, Threading::GetCurrentThreadId, Time::SystemTimeToFileTime,
+    },
     UI::{HiDpi::*, Input::KeyboardAndMouse::*, WindowsAndMessaging::*},
 };
 
@@ -288,6 +290,7 @@ pub struct NativeDriver {
     held_keys: crate::held_keys::HeldKeys,
     directory: PathBuf,
     scale: Option<u32>,
+    expected_window: Option<(u64, u32)>,
     ocr: Option<crate::ocr::OcrWorker>,
     ocr_settings: Result<crate::ocr_settings::OcrSettings, String>,
     cache: BTreeMap<String, (Vec<u8>, String)>,
@@ -323,6 +326,7 @@ impl NativeDriver {
             directory,
             ocr_settings,
             scale: None,
+            expected_window: None,
             ocr: None,
             cache: BTreeMap::new(),
             capture: None,
@@ -397,9 +401,51 @@ impl Drop for NativeDriver {
         }
     }
 }
+/// Foreground input is exclusive across concurrent tasks. A waiter observes its own
+/// cancellation, so stopping it never blocks behind another task's long key hold.
+fn acquire_input<'a>(
+    lock: &'a Mutex<()>,
+    cancel: &Cancellation,
+) -> Result<std::sync::MutexGuard<'a, ()>, String> {
+    loop {
+        match lock.try_lock() {
+            Ok(guard) => return Ok(guard),
+            Err(std::sync::TryLockError::WouldBlock) => {
+                if cancel.wait(Duration::from_millis(10)) {
+                    return Err("已停止".into());
+                }
+            }
+            Err(std::sync::TryLockError::Poisoned(_)) => return Err("前台输入锁异常".into()),
+        }
+    }
+}
+
+/// A found position may only drive input in the exact window it was captured from.
+fn same_window(window: &BoundWindow, expected: Option<(u64, u32)>) -> Result<(), String> {
+    match expected {
+        Some((hwnd, pid)) if window.hwnd != hwnd || window.pid != pid => {
+            Err("位置变量属于另一个窗口，请在当前窗口重新查找图片".into())
+        }
+        _ => Ok(()),
+    }
+}
+
 impl Driver for NativeDriver {
     fn set_scale(&mut self, scale: Option<u32>) {
         self.scale = scale;
+    }
+    fn local_time_ms(&self) -> Result<u64, String> {
+        let mut local = SYSTEMTIME::default();
+        let mut stamp = FILETIME::default();
+        // Encode the local calendar fields as a continuous wall-clock value for comparison.
+        unsafe { GetLocalTime(&mut local) };
+        if unsafe { SystemTimeToFileTime(&local, &mut stamp) } == 0 {
+            return Err("无法读取系统本地时间".into());
+        }
+        Ok(((u64::from(stamp.dwHighDateTime) << 32) | u64::from(stamp.dwLowDateTime)) / 10_000)
+    }
+    fn expect_window(&mut self, window: Option<(u64, u32)>) {
+        self.expected_window = window;
     }
     fn resolve_window(&mut self, title: &str) -> Result<BoundWindow, String> {
         let matches: Vec<_> = windows()?
@@ -434,12 +480,10 @@ impl Driver for NativeDriver {
                 | Action::KeyUp { .. }
                 | Action::Text { .. }
         ) {
-            Some(
-                INPUT_LOCK
-                    .get_or_init(|| Mutex::new(()))
-                    .lock()
-                    .map_err(|_| "前台输入锁异常")?,
-            )
+            Some(acquire_input(
+                INPUT_LOCK.get_or_init(|| Mutex::new(())),
+                cancel,
+            )?)
         } else {
             None
         };
@@ -527,6 +571,7 @@ impl Driver for NativeDriver {
                 .get(slot)
                 .ok_or_else(|| format!("窗口 {slot:?} 尚未绑定"))?
         };
+        same_window(window, self.expected_window)?;
         let adjusted;
         let action = if let Some(source) = self.scale {
             if matches!(
@@ -743,9 +788,12 @@ impl Driver for NativeDriver {
                 directory,
                 ..
             } => {
-                let image = self.capture_frame(window, *region, cancel)?;
                 let directory =
                     crate::engine::capture_directory(&self.directory, directory.as_deref())?;
+                if !crate::engine::local_capture_path(&directory) {
+                    return Err("截图不能保存到网络位置，请在本机重新选择保存文件夹".into());
+                }
+                let image = self.capture_frame(window, *region, cancel)?;
                 std::fs::create_dir_all(&directory).map_err(|e| e.to_string())?;
                 let file = format!(
                     "{name}-{}.png",
@@ -774,7 +822,7 @@ impl Driver for NativeDriver {
                     find_template_at(&image, &template, *threshold, *template_point, cancel)?;
                 let scale = window_scale(window)?;
                 let result = if *save_position {
-                    found.map_or(Value::Null, |(x,y)| json!({"x":i64::from(region.x)+i64::from(x),"y":i64::from(region.y)+i64::from(y),"target":slot,"scale":scale}))
+                    found.map_or(Value::Null, |(x,y)| json!({"x":i64::from(region.x)+i64::from(x),"y":i64::from(region.y)+i64::from(y),"target":slot,"scale":scale,"hwnd":window.hwnd,"pid":window.pid}))
                 } else {
                     json!(found.is_some())
                 };
@@ -1349,6 +1397,50 @@ pub fn list_scripts(directory: &Path) -> Result<Value, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn found_position_only_drives_the_window_it_was_captured_from() {
+        let window = BoundWindow {
+            hwnd: 7,
+            pid: 42,
+            title: "game".into(),
+            width: 100,
+            height: 100,
+        };
+        assert!(same_window(&window, None).is_ok());
+        assert!(same_window(&window, Some((7, 42))).is_ok());
+        // Same slot rebound to another window, or a reused handle in another process.
+        assert!(same_window(&window, Some((8, 42))).is_err());
+        assert!(same_window(&window, Some((7, 43))).is_err());
+    }
+    #[test]
+    fn input_lock_waiter_stops_without_waiting_for_holder() {
+        let lock = Arc::new(Mutex::new(()));
+        let held = lock.lock().unwrap();
+        let cancel = Cancellation::default();
+        let (waiter_lock, waiter_cancel) = (lock.clone(), cancel.clone());
+        let (tx, rx) = mpsc::channel();
+        let waiter = thread::spawn(move || {
+            tx.send(acquire_input(&waiter_lock, &waiter_cancel).map(drop))
+                .unwrap();
+        });
+        assert!(rx.recv_timeout(Duration::from_millis(100)).is_err());
+        let started = Instant::now();
+        cancel.cancel();
+        assert_eq!(
+            rx.recv_timeout(Duration::from_secs(2)).unwrap(),
+            Err("已停止".into())
+        );
+        assert!(started.elapsed() < Duration::from_secs(1));
+        waiter.join().unwrap();
+        drop(held);
+        let next = Cancellation::default();
+        let deferred = lock.lock().unwrap();
+        let (waiter_lock, waiter_next) = (lock.clone(), next.clone());
+        let waiter = thread::spawn(move || acquire_input(&waiter_lock, &waiter_next).map(drop));
+        thread::sleep(Duration::from_millis(30));
+        drop(deferred);
+        assert_eq!(waiter.join().unwrap(), Ok(()));
+    }
     #[test]
     fn drivers_snapshot_global_ocr_settings_without_starting_inference() {
         use crate::ocr_settings::{self, OcrDevice, OcrSettings};

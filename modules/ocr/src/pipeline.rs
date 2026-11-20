@@ -10,6 +10,39 @@ use imageproc::{
 };
 use ort::{session::Session, value::Tensor};
 use serde::Deserialize;
+use std::ops::Range;
+
+pub(crate) const DETECTOR_SIDE: u32 = 960;
+const TWO_TILE_SIDE: u32 = 2 * (DETECTOR_SIDE - 32);
+
+// Work in detector pixels. Each core owns its scores exactly once; neighbouring
+// tiles see extra context on both sides of the seam. All extents align to stride 32.
+struct TileAxis {
+    input: Range<u32>,
+    core: Range<u32>,
+}
+
+fn detection_tiles(length: u32) -> Vec<TileAxis> {
+    if length <= DETECTOR_SIDE {
+        return vec![TileAxis {
+            input: 0..length,
+            core: 0..length,
+        }];
+    }
+    let middle = (length / 2).next_multiple_of(32);
+    // Use spare input width for context around long lines, up to three strides.
+    let margin = (DETECTOR_SIDE - middle).min(96);
+    vec![
+        TileAxis {
+            input: 0..middle + margin,
+            core: 0..middle,
+        },
+        TileAxis {
+            input: middle - margin..length,
+            core: middle..length,
+        },
+    ]
+}
 
 #[derive(Deserialize)]
 pub struct Config {
@@ -48,36 +81,74 @@ impl Engine {
             fixed_shapes,
         })
     }
+    fn detect(&mut self, image: &RgbImage, dw: u32, dh: u32) -> Result<Vec<Quad>> {
+        let single = dw.max(dh) <= DETECTOR_SIDE;
+        let mut merged = if single {
+            Vec::new()
+        } else {
+            vec![0.0; (dw * dh) as usize]
+        };
+        let columns = detection_tiles(dw);
+        for row in detection_tiles(dh) {
+            for col in &columns {
+                let (tw, th) = (col.input.len() as u32, row.input.len() as u32);
+                let (iw, ih) = if self.fixed_shapes {
+                    (DETECTOR_SIDE, DETECTOR_SIDE)
+                } else {
+                    (tw, th)
+                };
+                let input = normalized_region(
+                    image,
+                    (dw, dh),
+                    col.input.clone(),
+                    row.input.clone(),
+                    (iw, ih),
+                    true,
+                );
+                let input = Tensor::from_array(([1, 3, ih as usize, iw as usize], input))?;
+                let outputs = self.det.run(ort::inputs![input])?;
+                let (shape, scores) = outputs[0].try_extract_tensor::<f32>()?;
+                if **shape != [1, 1, i64::from(ih), i64::from(iw)] {
+                    return Err("检测模型输出尺寸无效".into());
+                }
+                if scores.iter().any(|score| !score.is_finite()) {
+                    return Err("检测模型输出包含非有限数值".into());
+                }
+                if single {
+                    return Ok(boxes_from_map(scores, iw, ih, &self.config.det));
+                }
+                for y in row.core.clone() {
+                    let src =
+                        ((y - row.input.start) * iw + col.core.start - col.input.start) as usize;
+                    let dst = (y * dw + col.core.start) as usize;
+                    let count = col.core.len();
+                    merged[dst..dst + count].copy_from_slice(&scores[src..src + count]);
+                }
+            }
+        }
+        Ok(boxes_from_map(&merged, dw, dh, &self.config.det))
+    }
+
     pub fn recognize(&mut self, image: &RgbImage) -> Result<String> {
         let (w, h) = image.dimensions();
-        let ratio = (960.0 / w.max(h) as f32).min(1.0);
+        let long = w.max(h);
+        // Fit widescreen captures in one row or column. Squarer captures need
+        // four tiles to retain detail. 1696 is the stride-aligned 16:9 width at 960 high.
+        let limit = if long > 1920 {
+            (long * DETECTOR_SIDE / w.min(h)).clamp(1696, TWO_TILE_SIDE)
+        } else {
+            DETECTOR_SIDE
+        };
+        let ratio = (limit as f32 / long as f32).min(1.0);
         let dw = (((w as f32 * ratio).floor() / 32.0).round_ties_even() as u32 * 32).max(32);
         let dh = (((h as f32 * ratio).floor() / 32.0).round_ties_even() as u32 * 32).max(32);
-        let (iw, ih) = if self.fixed_shapes {
-            (960, 960)
-        } else {
-            (dw, dh)
-        };
-        let input = normalized(image, dw, dh, iw, true);
-        let input = pad_height(input, iw, dh, ih);
-        let input = Tensor::from_array(([1, 3, ih as usize, iw as usize], input))?;
-        let outputs = self.det.run(ort::inputs![input])?;
-        let (shape, scores) = outputs[0].try_extract_tensor::<f32>()?;
-        if scores.iter().any(|score| !score.is_finite()) {
-            return Err("检测模型输出包含非有限数值".into());
-        }
-        if shape.len() != 4 || shape[0] != 1 || shape[1] != 1 || shape[2] <= 0 || shape[3] <= 0 {
-            return Err("检测模型输出尺寸无效".into());
-        }
-        let mw = shape[3] as u32;
-        let mh = shape[2] as u32;
-        let mut boxes = boxes_from_map(scores, mw, mh, &self.config.det);
+        let mut boxes = self.detect(image, dw, dh)?;
         for points in &mut boxes {
             for p in points {
-                p.x = (p.x * iw as f32 / mw as f32 * w as f32 / dw as f32)
+                p.x = (p.x * w as f32 / dw as f32)
                     .round()
                     .clamp(0.0, w.saturating_sub(1) as f32);
-                p.y = (p.y * ih as f32 / mh as f32 * h as f32 / dh as f32)
+                p.y = (p.y * h as f32 / dh as f32)
                     .round()
                     .clamp(0.0, h.saturating_sub(1) as f32);
             }
@@ -104,8 +175,15 @@ impl Engine {
             } else {
                 ((48.0 * ratio).max(320.0) as u32).min(3200)
             };
-            let resized = (48.0 * ratio).ceil().min(width as f32) as u32;
-            let input = normalized(&crop, resized.max(1), 48, width, false);
+            let content_width = ((48.0 * ratio).ceil() as u32).clamp(1, width);
+            let input = normalized_region(
+                &crop,
+                (content_width, 48),
+                0..content_width,
+                0..48,
+                (width, 48),
+                false,
+            );
             let outputs = self.rec.run(ort::inputs![Tensor::from_array((
                 [1, 3, 48, width as usize],
                 input
@@ -128,31 +206,27 @@ impl Engine {
 
 // OpenCV-compatible half-pixel bilinear resize; BGR order is intentional and
 // matches the official Paddle OCR input pipeline. Padding stays normalized zero.
-fn pad_height(input: Vec<f32>, width: u32, height: u32, padded: u32) -> Vec<f32> {
-    if height == padded {
-        return input;
-    }
-    let plane = (width * height) as usize;
-    let padded_plane = (width * padded) as usize;
-    let mut output = vec![0.0; 3 * padded_plane];
-    for channel in 0..3 {
-        output[channel * padded_plane..channel * padded_plane + plane]
-            .copy_from_slice(&input[channel * plane..(channel + 1) * plane]);
-    }
-    output
-}
-
-fn normalized(image: &RgbImage, w: u32, h: u32, padded: u32, det: bool) -> Vec<f32> {
-    let mut out = vec![0.0; 3 * padded as usize * h as usize];
+fn normalized_region(
+    image: &RgbImage,
+    size: (u32, u32),
+    cols: Range<u32>,
+    rows: Range<u32>,
+    padded: (u32, u32),
+    det: bool,
+) -> Vec<f32> {
+    let stride = padded.0 as usize;
+    let plane = stride * padded.1 as usize;
+    let mut out = vec![0.0; 3 * plane];
     let means = [0.485, 0.456, 0.406];
     let stds = [0.229, 0.224, 0.225];
-    for y in 0..h {
-        let fy = ((y as f32 + 0.5) * image.height() as f32 / h as f32 - 0.5).max(0.0);
+    for (y, sample_y) in rows.enumerate() {
+        let fy = ((sample_y as f32 + 0.5) * image.height() as f32 / size.1 as f32 - 0.5).max(0.0);
         let y0 = fy.floor() as u32;
         let y1 = (y0 + 1).min(image.height() - 1);
         let ay = fy - y0 as f32;
-        for x in 0..w {
-            let fx = ((x as f32 + 0.5) * image.width() as f32 / w as f32 - 0.5).max(0.0);
+        for (x, sample_x) in cols.clone().enumerate() {
+            let fx =
+                ((sample_x as f32 + 0.5) * image.width() as f32 / size.0 as f32 - 0.5).max(0.0);
             let x0 = fx.floor() as u32;
             let x1 = (x0 + 1).min(image.width() - 1);
             let ax = fx - x0 as f32;
@@ -163,7 +237,7 @@ fn normalized(image: &RgbImage, w: u32, h: u32, padded: u32, det: bool) -> Vec<f
                 let bottom = image.get_pixel(x0, y1)[channel] as f32 * (1.0 - ax)
                     + image.get_pixel(x1, y1)[channel] as f32 * ax;
                 let v = (top * (1.0 - ay) + bottom * ay).round() / 255.0;
-                out[(c * h as usize + y as usize) * padded as usize + x as usize] = if det {
+                out[c * plane + y * stride + x] = if det {
                     (v - means[c]) / stds[c]
                 } else {
                     (v - 0.5) * 2.0
@@ -368,12 +442,44 @@ fn decode(scores: &[f32], chars: &[String]) -> Result<(String, f32)> {
 mod tests {
     use super::*;
     use image::Rgb;
+
     #[test]
-    fn padded_planes_keep_channels_and_original_pixels_separate() {
-        assert_eq!(
-            pad_height(vec![1., 2., 3., 4., 5., 6.], 2, 1, 2),
-            vec![1., 2., 0., 0., 3., 4., 0., 0., 5., 6., 0., 0.]
-        );
+    fn tile_cores_cover_the_map_and_fit_the_detector_with_context() {
+        for length in (32..=TWO_TILE_SIDE).step_by(32) {
+            let tiles = detection_tiles(length);
+            let mut next = 0;
+            for tile in &tiles {
+                assert_eq!(tile.core.start, next);
+                assert!(tile.input.contains(&tile.core.start));
+                assert!(tile.input.end >= tile.core.end && tile.input.end <= length);
+                assert!(tile.input.len() <= DETECTOR_SIDE as usize);
+                assert_eq!(tile.input.len() % 32, 0);
+                next = tile.core.end;
+            }
+            assert_eq!(next, length);
+            if let [left, right] = tiles.as_slice() {
+                assert!((64..=192).contains(&(left.input.end - right.input.start)));
+            }
+        }
+    }
+
+    #[test]
+    fn tiles_sample_the_same_pixels_as_the_full_map_and_zero_both_padding_axes() {
+        let image = RgbImage::from_fn(11, 9, |x, y| Rgb([x as u8, y as u8, (x * y) as u8]));
+        let full = normalized_region(&image, (8, 6), 0..8, 0..6, (8, 6), true);
+        let tile = normalized_region(&image, (8, 6), 2..7, 3..5, (8, 4), true);
+        for channel in 0..3 {
+            for y in 0..4 {
+                for x in 0..8 {
+                    let expected = if y < 2 && x < 5 {
+                        full[channel * 48 + (3 + y) * 8 + 2 + x]
+                    } else {
+                        0.0
+                    };
+                    assert_eq!(tile[channel * 32 + y * 8 + x], expected);
+                }
+            }
+        }
     }
     #[test]
     fn ctc_blank_separates_repeated_characters() {
@@ -389,7 +495,7 @@ mod tests {
     #[test]
     fn normalization_keeps_bgr_and_zero_padding() {
         let img = RgbImage::from_pixel(1, 1, Rgb([255, 128, 0]));
-        let v = normalized(&img, 1, 1, 2, false);
+        let v = normalized_region(&img, (1, 1), 0..1, 0..1, (2, 1), false);
         assert_eq!(v[0], -1.0);
         assert_eq!(v[4], 1.0);
         assert_eq!(v[1], 0.0);

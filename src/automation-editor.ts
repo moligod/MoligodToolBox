@@ -48,6 +48,7 @@ export interface Script {
 }
 const names: Record<string, string> = {
   wait: "等待",
+  scheduleStart: "定时启动",
   setWindow: "设置窗口",
   focus: "窗口切换",
   click: "鼠标点击",
@@ -73,7 +74,7 @@ const names: Record<string, string> = {
   assert: "条件停止",
   regex: "正则匹配",
   comment: "注解",
-  notify: "提示",
+  notify: "运行提示",
   group: "分组",
 };
 export function initAutomationEditor(
@@ -168,6 +169,7 @@ export function initAutomationEditor(
     scale: () => read(scriptText).缩放,
     prepare: syncScale,
     owner: () => editing?.step,
+    invalidate: () => { ocrResult.textContent = ""; },
     locked: () => state.running || (editing?.step.action.type === "click" && editing.step.action.position !== undefined),
     capture: async () => {
       const owner = editing;
@@ -293,7 +295,7 @@ export function initAutomationEditor(
     if (text === undefined) { blocks.flush(); text = scriptText; }
     const parsed = JSON.parse(text) as Script;
     if (
-      ![1, 2, 3, 4].includes(parsed.schemaVersion) ||
+      ![1, 2, 3, 4, 5].includes(parsed.schemaVersion) ||
       typeof parsed.name !== "string" ||
       !Array.isArray(parsed.steps) ||
       parsed.steps.length > 1000
@@ -1210,13 +1212,16 @@ export function initAutomationEditor(
       const button = get<HTMLButtonElement>("auto-ocr-test");
       button.disabled = true;
       ocrResult.textContent = "正在识别…";
+      // A refreshed screenshot replaces the frame this request reads; drop its late reply.
+      let snapshot: string | undefined;
       try {
         const selection = mousePreview.selection();
+        snapshot = selection.snapshot;
         const result = await request<{text?:string}>("ocr-test", {...selection,numbersOnly:!!owner.step.action.numbersOnly,numericResult:!!owner.step.action.numericResult});
-        if (editing !== owner || token !== previewGeneration) return;
+        if (editing !== owner || token !== previewGeneration || mousePreview.current() !== snapshot) return;
         ocrResult.textContent = result.text || (owner.step.action.numbersOnly ? (owner.step.action.numericResult ? "该区域未识别到数字（结果为空值）" : "该区域未识别到数字") : "该区域未识别到文字");
       } catch (error) {
-        if (editing === owner && token === previewGeneration) ocrResult.textContent = "识别失败：" + String(error);
+        if (editing === owner && token === previewGeneration && (snapshot === undefined || mousePreview.current() === snapshot)) ocrResult.textContent = "识别失败：" + String(error);
       } finally { button.disabled = false; }
     });
   });

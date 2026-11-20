@@ -31,6 +31,10 @@ jobs:
         run: cargo test -p moligod-crosshair --locked
       - name: Module protocol and automation tests
         run: cargo test -p moligod-module-protocol -p moligod-module-host -p moligod-automation --lib --locked
+      - name: Automation integration tests
+        run: cargo test -p moligod-automation --test value_blocks --locked
+      - name: Desktop host unit tests
+        run: cargo test -p moligod --lib --locked
       - name: Offline small and tiny OCR
         run: cargo test -p moligod-automation --lib --locked offline_models -- --ignored --nocapture
       - name: Dependency boundaries

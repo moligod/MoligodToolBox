@@ -22,6 +22,38 @@ test("variable click accepts a point name instead of fixed coordinates", () => {
   assert.deepEqual(actionIssues(actionDraft("runTask"),()=>false),["请选择要运行的任务"]);
 });
 
+test("scheduled starts accept full local clock times and require script version five", () => {
+  const step = actionDraft("scheduleStart");
+  assert.equal(step.action.time, "12:00:00");
+  for (const time of ["00:00:00", "23:59:59"]) {
+    step.action.time = time;
+    assert.deepEqual(actionIssues(step, () => false), []);
+  }
+  for (const time of ["", "12:00", "24:00:00", "05:60:00", "12:00:60", "12:00:00\n", 120000]) {
+    step.action.time = time;
+    assert.deepEqual(actionIssues(step, () => false), ["定时启动请输入 24 小时制 HH:mm:ss"]);
+  }
+  assert.equal(requiredScriptVersion([step]), 5);
+  assert.equal(requiredScriptVersion([
+    { delayMs: 0, action: { type: "group", steps: [step] } },
+    { delayMs: 0, action: { type: "match", templatePoint: { x: 1, y: 2 } } },
+  ]), 5);
+});
+
+test("imported capture actions pointing at network folders are flagged before running", () => {
+  const capture = actionDraft("capture");
+  Object.assign(capture.action, { target: "A", region: { x: 0, y: 0, width: 10, height: 10 } });
+  assert.deepEqual(actionIssues(capture, () => true), []);
+  for (const local of ["C:\\Screenshots", "Z:\\mapped", String.raw`\\?\C:\Screenshots`]) {
+    capture.action.directory = local;
+    assert.deepEqual(actionIssues(capture, () => true), []);
+  }
+  for (const network of ["\\\\server\\share", "//server/share", "\\\\?\\UNC\\server\\share", String.raw`\\.\C:\Screenshots`]) {
+    capture.action.directory = network;
+    assert.deepEqual(actionIssues(capture, () => true), ["截图不能保存到网络位置，请重新选择保存文件夹"]);
+  }
+});
+
 test("new OCR actions use global settings while imported model fields survive roundtrips", () => {
   const step = actionDraft("ocr");
   assert.equal(step.action.ocrModel, undefined);

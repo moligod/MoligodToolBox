@@ -1533,6 +1533,46 @@ main::-webkit-scrollbar-thumb:hover {
 .auto-blockly-comment-input::placeholder {
   color: var(--text);
 }
+.auto-blockly-add-comment {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--text);
+  font: 20px/1 "Segoe UI", sans-serif;
+  cursor: pointer;
+}
+.auto-blockly-add-comment:hover,
+.auto-blockly-add-comment:focus-visible {
+  background: var(--hover);
+  border-color: var(--accent);
+}
+.moligod_action:has(> .auto-blockly-annotation) > .auto-blockly-comment-shortcut {
+  display: none;
+}
+.auto-blockly-annotation-input {
+  display: block;
+  width: 100%;
+  height: 100%;
+  resize: none;
+  overflow: hidden;
+  padding: 3px 5px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--subtle);
+  font: 12px/1.15 "Microsoft YaHei", sans-serif;
+}
+.auto-blockly-annotation-input:focus {
+  outline: none;
+  border-color: var(--muted);
+  background: var(--field);
+  color: var(--text);
+}
 .auto-blockly .auto-blockly-comment-grip {
   fill: var(--accent);
   cursor: grab;
@@ -2346,7 +2386,21 @@ main:has(#automation-dialog:not([hidden])) {
 }
 .auto-blockly .auto-component-tip .blocklyFlyoutLabelText { font-weight: 400; }
 .auto-blockly .auto-component-placeholder { visibility: hidden; }
-.auto-blockly .auto-component-empty { pointer-events: none; fill: var(--accent); font: 13px "Microsoft YaHei", sans-serif; }
+.auto-component-hint {
+  position: absolute;
+  z-index: 20;
+  inset-block-end: 0;
+  box-sizing: border-box;
+  margin: 0;
+  padding-block: 6px;
+  padding-inline: 6px;
+  border-block-start: 1px solid var(--line);
+  background: var(--panel-header);
+  color: var(--muted);
+  font: 12px / 1.5 "Microsoft YaHei", sans-serif;
+  text-align: center;
+}
+.blocklyFlyout[style*="display: none"] + .auto-component-hint { display: none; }
 .auto-blockly .auto-component-button { cursor: pointer; }
 .auto-blockly .auto-component-button rect { fill: var(--line); stroke: var(--line-strong); }
 .auto-blockly .auto-component-button text { fill: var(--text); font-family: "Microsoft YaHei", sans-serif; pointer-events: none; }
@@ -2874,7 +2928,7 @@ select:focus-visible {
 #automation-dialog .auto-blockly-controls-docked .auto-recycle-button { border: 0; background: transparent; border-radius: 6px; min-height: 42px; }
 #automation-dialog #auto-logs-tab { min-height: 42px; border-radius: 6px; }
 #automation-dialog :is(.auto-recycle-button, #auto-logs-tab)[aria-expanded='true'] { color: var(--text); background: var(--subtle); }
-#automation-dialog .automation-layout[data-auto-panel]:not([data-auto-panel='']) .blocklyFlyout { visibility: hidden; pointer-events: none; }
+#automation-dialog .automation-layout[data-auto-panel]:not([data-auto-panel='']) :is(.blocklyFlyout, .auto-component-hint) { visibility: hidden; pointer-events: none; }
 #automation-dialog .auto-blockly-controls-docked button:last-child { grid-column: auto; }
 #automation-dialog .auto-blockly .blocklyToolbox:not([style*="display: none"]) { height: calc(100% - 125px) !important; }
 #automation-dialog .auto-blockly-controls-docked .auto-recycle-button:last-child { grid-column: 1 / -1; }
@@ -3155,7 +3209,7 @@ dialog h2, dialog h3 { font-size: 14px; }
   background: var(--field);
   box-shadow: 0 -6px 20px #0003;
 }
-#automation-dialog .automation-layout[data-auto-panel="logs"] #auto-step-list .blocklyFlyout { visibility: visible; pointer-events: auto; }
+#automation-dialog .automation-layout[data-auto-panel="logs"] #auto-step-list :is(.blocklyFlyout, .auto-component-hint) { visibility: visible; pointer-events: auto; }
 #automation-dialog .auto-side-panel #auto-logs-panel { display: flex; flex-direction: column; }
 #automation-dialog .auto-side-panel .auto-log-tabs {
   flex-shrink: 0;

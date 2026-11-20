@@ -7,6 +7,18 @@ test("inline screenshot maps scaled coordinates and clamps captured pointer outs
   assert.deepEqual(mousePoint(90,20,rect,1800,1200), {x:0,y:0});
   assert.deepEqual(mousePoint(900,900,rect,1800,1200), {x:1799,y:1199});
 });
+test("region drags past the bottom-right corner include the last column and row", () => {
+  const rect = {left:0,top:0,width:960,height:540};
+  const start = mousePoint(-5,-5,rect,3840,2160,true), end = mousePoint(2000,2000,rect,3840,2160,true);
+  assert.deepEqual([start,end], [{x:0,y:0},{x:3840,y:2160}]);
+  for (const type of ["ocr","match","capture"]) {
+    const step={action:{type}};
+    applyMousePoints(step,start,end);
+    assert.deepEqual(step.action.region,{x:0,y:0,width:3840,height:2160});
+  }
+  // Points that name a pixel (click, drag, scroll) still stop at the last pixel index.
+  assert.deepEqual(mousePoint(2000,2000,rect,3840,2160), {x:3839,y:2159});
+});
 test("reverse drag preserves direction while click and scroll select only the final point", () => {
   const start={x:90,y:80},end={x:10,y:20};
   const drag={delayMs:0, annotation:"keep",action:{type:"drag",target:"A",button:"right",durationMs:300}};

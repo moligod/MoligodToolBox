@@ -1,9 +1,6 @@
 use crate::model::OcrModel;
 use serde::{Deserialize, Serialize};
-use std::{
-    io::{Read, Write},
-    path::Path,
-};
+use std::{io::Read, path::Path};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -66,18 +63,12 @@ fn validate(settings: OcrSettings) -> Result<(), String> {
 pub fn save(directory: &Path, settings: OcrSettings) -> Result<(), String> {
     validate(settings)?;
     load(directory)?;
-    std::fs::create_dir_all(directory).map_err(|e| e.to_string())?;
-    let target = directory.join("ocr-settings.json");
-    if target.exists() {
-        std::fs::copy(&target, directory.join("ocr-settings.json.bak"))
-            .map_err(|e| e.to_string())?;
-    }
-    let mut temp = tempfile::NamedTempFile::new_in(directory).map_err(|e| e.to_string())?;
-    temp.write_all(&serde_json::to_vec_pretty(&settings).map_err(|e| e.to_string())?)
-        .map_err(|e| e.to_string())?;
-    temp.as_file().sync_all().map_err(|e| e.to_string())?;
-    temp.persist(target).map_err(|e| e.to_string())?;
-    Ok(())
+    crate::atomic_file::replace_with_backup(
+        directory,
+        "ocr-settings.json",
+        &serde_json::to_vec_pretty(&settings).map_err(|e| e.to_string())?,
+        4096,
+    )
 }
 
 #[cfg(test)]

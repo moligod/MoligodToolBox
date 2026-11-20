@@ -1,3 +1,4 @@
+mod atomic_file;
 pub mod engine;
 pub mod expression;
 mod held_keys;

@@ -1,8 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::{
-    io::{Read, Write},
-    path::Path,
-};
+use std::{io::Read, path::Path};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -76,18 +73,12 @@ pub fn load(directory: &Path) -> Result<HotkeySettings, String> {
 pub fn save(directory: &Path, settings: HotkeySettings) -> Result<(), String> {
     settings.validate()?;
     load(directory)?;
-    std::fs::create_dir_all(directory).map_err(|e| e.to_string())?;
-    let target = directory.join("hotkey-settings.json");
-    if target.exists() {
-        std::fs::copy(&target, directory.join("hotkey-settings.json.bak"))
-            .map_err(|e| e.to_string())?;
-    }
-    let mut temp = tempfile::NamedTempFile::new_in(directory).map_err(|e| e.to_string())?;
-    temp.write_all(&serde_json::to_vec_pretty(&settings).map_err(|e| e.to_string())?)
-        .map_err(|e| e.to_string())?;
-    temp.as_file().sync_all().map_err(|e| e.to_string())?;
-    temp.persist(target).map_err(|e| e.to_string())?;
-    Ok(())
+    crate::atomic_file::replace_with_backup(
+        directory,
+        "hotkey-settings.json",
+        &serde_json::to_vec_pretty(&settings).map_err(|e| e.to_string())?,
+        4096,
+    )
 }
 
 #[cfg(test)]

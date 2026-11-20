@@ -2,7 +2,7 @@
 
 面向 Windows 的本地游戏工具箱，提供自定义准星、可视化自动化、截图与离线 OCR。
 
-当前版本为 **2.0.0**，桌面客户端使用 Tauri 2、TypeScript 和 Rust，工具通过独立进程按需启动。关闭主窗口后可通过系统托盘重新打开或退出。
+当前源码版本为 **2.0.1**，桌面客户端使用 Tauri 2、TypeScript 和 Rust，工具通过独立进程按需启动。关闭主窗口后可通过系统托盘重新打开或退出。
 
 [下载 v2.0.0 Windows x64 安装包](https://github.com/moligod/MoligodToolBox/releases/download/v2.0.0/MoligodToolBox_2.0.0_x64-setup.exe) · [发布说明](https://github.com/moligod/MoligodToolBox/releases/tag/v2.0.0)
 
@@ -75,7 +75,7 @@ OCR 准备脚本会在构建阶段下载原生库和模型，并校验固定 SHA
 npm run tauri build -- --no-bundle
 ```
 
-输出：`target/release/moligod.exe`，必须连同 `target/release/modules/` 分发。构建 NSIS 安装包用 `npm run tauri build`；v2.0.0 已提供带更新签名的安装包，维护流程见 [官方组件与版本更新](docs/github-distribution.md)。
+以上命令用于检查正式版编译。构建可安装的 NSIS 包用 `npm run tauri build`，v2.0.1 起正式程序需安装到 `Program Files\MoligodToolBox`。签名与分发流程见 [官方组件与版本更新](docs/github-distribution.md)。
 
 ## 验证
 

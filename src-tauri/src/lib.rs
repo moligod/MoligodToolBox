@@ -3,6 +3,8 @@ mod auxiliary;
 mod capture_directory;
 mod game_library;
 mod github;
+#[cfg(any(protected_install, test))]
+mod install_location;
 mod tool_windows;
 mod toolbox_window;
 use base64::{engine::general_purpose::STANDARD, Engine};
@@ -403,15 +405,34 @@ async fn automation_action(
                 eprintln!("Windows declined automation foreground permission transfer");
             }
         }
+        let archived = (action == "task-delete")
+            .then(|| payload.as_str().map(str::to_owned))
+            .flatten();
         let result = module.call(&action, payload);
-        // Capturing activates the target; return the user to the visible picker/result.
+        // Capturing activates the target; return the user to the window that asked for the
+        // picker/result. A hidden toolbox or editor stays hidden.
         if matches!(action.as_str(), "preview" | "ocr-test")
             && state.automation_editor.load(Ordering::Relaxed)
             && !state.quitting.load(Ordering::Relaxed)
+            && window.is_visible().unwrap_or(false)
         {
-            show_main(&app);
+            if let Err(error) = window.unminimize().and_then(|_| window.set_focus()) {
+                eprintln!("Cannot refocus automation window: {error}");
+            }
         }
         let result = result?;
+        if let Some(id) = archived {
+            // The module joined the runner before replying, so its final state event has
+            // already been cached; dropping it now cannot be undone by a late event.
+            if let Some(rows) = state
+                .automation_task_status
+                .lock()
+                .map_err(|_| "任务状态锁异常")?
+                .as_object_mut()
+            {
+                rows.remove(&id);
+            }
+        }
         if action == "stop" {
             let tasks_running = state
                 .automation_task_status
@@ -482,6 +503,11 @@ async fn open_delta_guide(
 }
 
 pub fn run() {
+    #[cfg(protected_install)]
+    let Some(release_modules) = install_location::release_modules() else {
+        install_location::show_install_required();
+        return;
+    };
     tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(
@@ -492,7 +518,7 @@ pub fn run() {
         .plugin(tauri_plugin_single_instance::init(|app, _, _| {
             show_main(app)
         }))
-        .setup(|app| {
+        .setup(move |app| {
             app.manage(github::State::default());
             app.manage(toolbox_window::State::default());
             // Compact launcher; tools expand this same window on demand.
@@ -506,18 +532,19 @@ pub fn run() {
             let store = ConfigStore::new(&directory);
             let game_library = GameLibraryStore::new(&app.path().app_data_dir()?);
             let image_directory = directory.join("crosshair-images");
-            let bundled = if cfg!(debug_assertions) {
-                std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../bundled-modules/dev")
-            } else {
-                app.path().resource_dir()?.join("modules")
-            };
-            let installed = app.path().app_local_data_dir()?.join("modules");
+            #[cfg(not(protected_install))]
+            let (bundled, installed) = (
+                std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../bundled-modules/dev"),
+                Some(app.path().app_local_data_dir()?.join("modules")),
+            );
+            #[cfg(protected_install)]
+            let (bundled, installed): (_, Option<std::path::PathBuf>) = (release_modules, None);
             let automation_status=Arc::new(Mutex::new(serde_json::json!({"running":false,"phase":"idle","step":0,"executed":0,"error":null,"variables":{},"logs":[],"revision":0})));
             let automation_task_status=Arc::new(Mutex::new(serde_json::json!({})));
             let cached_tasks=automation_task_status.clone();
             let cached_auto=automation_status.clone();let handle_auto=app.handle().clone();
             app.manage(automation_bar::State::default());
-            let automation=ModuleClient::new("automation",bundled.join("automation"),installed.join("automation"),directory.join("automation"),move|name,mut data|{
+            let automation=ModuleClient::new("automation",bundled.join("automation"),installed.as_ref().map(|path| path.join("automation")),directory.join("automation"),move|name,mut data|{
                 if name=="automation-task-state" {
                     if let (Some(id),Some(status))=(data["taskId"].as_str(),data.get("status")) {
                         if let Ok(mut cached)=cached_tasks.lock() { cached[id]=status.clone(); }
@@ -534,6 +561,8 @@ pub fn run() {
                                     let _=handle_auto.emit("automation-task-state",serde_json::json!({"taskId":id,"status":status}));
                                 }
                             }
+                            // A new module process starts without runners; stale rows only grow.
+                            rows.clear();
                         }
                     }
                 }
@@ -570,7 +599,7 @@ pub fn run() {
             let crosshair = ModuleClient::new(
                 "crosshair",
                 bundled.join("crosshair"),
-                installed.join("crosshair"),
+                installed.as_ref().map(|path| path.join("crosshair")),
                 image_directory,
                 move |name, data| {
                     if name == "crosshair-state" {
@@ -639,6 +668,8 @@ pub fn run() {
                 if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                     api.prevent_close();
                     if window.label() == "tool-automation" { auxiliary::close_active(window.app_handle()); }
+                    // Hiding keeps drafts; the page treats it as closing and releases idle modules.
+                    tool_windows::notify_visibility(window, window.label(), false);
                     if let Err(error) = window.hide() { eprintln!("Cannot hide tool window: {error}"); }
                 }
                 return;

@@ -222,7 +222,7 @@ fn main() {
             let mut module = moligod_module_host::ModuleClient::new(
                 "automation",
                 root,
-                temp.path().join("override"),
+                None,
                 temp.path().join("module"),
                 |_, _| {},
             );

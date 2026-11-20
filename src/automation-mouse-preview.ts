@@ -1,9 +1,13 @@
 import { scaleAction } from "./automation-scale.ts";
 import type { Step } from "./automation-editor";
 export type MousePoint = { x: number; y: number };
-export function mousePoint(x: number, y: number, rect: {left:number;top:number;width:number;height:number}, width:number, height:number): MousePoint {
-  return {x: Math.max(0, Math.min(width - 1, Math.floor((x - rect.left) * width / rect.width))), y: Math.max(0, Math.min(height - 1, Math.floor((y - rect.top) * height / rect.height)))};
+/** Pixel under the pointer. Region corners are edges, so `edge` lets them reach width/height
+ * and a drag past the bottom-right corner selects the last column and row. */
+export function mousePoint(x: number, y: number, rect: {left:number;top:number;width:number;height:number}, width:number, height:number, edge = false): MousePoint {
+  const maxX = edge ? width : width - 1, maxY = edge ? height : height - 1;
+  return {x: Math.max(0, Math.min(maxX, Math.floor((x - rect.left) * width / rect.width))), y: Math.max(0, Math.min(maxY, Math.floor((y - rect.top) * height / rect.height)))};
 }
+const regionAction = (step: Step | undefined) => ["ocr", "match", "capture"].includes(step?.action.type ?? "");
 export function applyMousePoints(step: Step, start: MousePoint, end: MousePoint) {
   if (["ocr", "match", "capture"].includes(step.action.type)) {
     const width = Math.abs(end.x-start.x), height = Math.abs(end.y-start.y);
@@ -20,6 +24,8 @@ export function createMousePreview(parent: HTMLElement, options: {
   locked: () => boolean;
   capture: () => Promise<{width:number;height:number;scale?:number;snapshot?:string;png:string} | undefined>;
   update: () => void;
+  /** A new screenshot is being taken; results computed from the old one are stale. */
+  invalidate?: () => void;
 }) {
   const panel = document.createElement("div");
   panel.className = "mouse-preview";
@@ -82,6 +88,7 @@ export function createMousePreview(parent: HTMLElement, options: {
   }
   async function load() {
     reset();
+    options.invalidate?.();
     const owner = options.owner();
     if (owner?.action.type === "click" && owner.action.position !== undefined) return;
     if (!owner || !["click","drag","scroll","ocr","match","capture"].includes(owner.action.type)) return;
@@ -107,18 +114,18 @@ export function createMousePreview(parent: HTMLElement, options: {
     } catch (error) {if (generation === token) hint.textContent = "截图失败：" + String(error);}
     finally {if (generation === token) refresh.disabled = false;}
   }
-  const point = (e:PointerEvent) => mousePoint(e.clientX,e.clientY,canvas.getBoundingClientRect(),width,height);
+  const point = (e:PointerEvent, owner:Step) => mousePoint(e.clientX,e.clientY,canvas.getBoundingClientRect(),width,height,regionAction(owner));
   canvas.addEventListener("pointerdown", e => {
     const owner = options.owner();
     if (e.button !== 0 || !picture || !owner || options.locked()) return;
     e.preventDefault(); canvas.setPointerCapture(e.pointerId);
-    gesture = {id:e.pointerId,start:point(e),owner};
+    gesture = {id:e.pointerId,start:point(e,owner),owner};
   });
-  canvas.addEventListener("pointermove", e => {if (gesture?.id === e.pointerId) draw(gesture.start,point(e));});
+  canvas.addEventListener("pointermove", e => {if (gesture?.id === e.pointerId) draw(gesture.start,point(e,gesture.owner));});
   canvas.addEventListener("pointerup", e => {
     const current = gesture; gesture = undefined;
     if (!current || current.id !== e.pointerId || current.owner !== options.owner() || options.locked()) return;
-    const end = point(e);
+    const end = point(e,current.owner);
     const source = options.scale?.() ?? imageScale;
     const convert = (p:MousePoint) => ({x:Math.round(p.x*source/imageScale),y:Math.round(p.y*source/imageScale)});
     const startPoint = convert(current.start), endPoint = convert(end);
@@ -142,5 +149,5 @@ export function createMousePreview(parent: HTMLElement, options: {
       throw new Error("请先框选有效的识别区域");
     return {snapshot, region};
   }
-  return {load,reset,updateMode,refresh,selection};
+  return {load,reset,updateMode,refresh,selection,current: () => snapshot};
 }

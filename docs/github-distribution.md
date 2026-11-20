@@ -39,6 +39,8 @@
 
 工作流按标签源码构建并检查版本一致性。普通本地构建沿用开发构建方式；签名更新产物由 release 工作流通过 `createUpdaterArtifacts` 生成。更新下载地址限定于官方仓库及用户确认的版本标签，安装前由 Tauri updater 验证签名。[Tauri updater](https://v2.tauri.app/plugin/updater/) · [Tauri GitHub Action](https://github.com/tauri-apps/tauri-action)
 
+v2.0.1 起安装包使用全机安装，目标固定为 `Program Files\MoligodToolBox`。从 v2.0.0 迁移会创建新的全机安装，旧版每用户程序目录会保留。启动新版时请使用全机安装位置或相应快捷方式。同一 Windows 账号的任务和配置仍从原数据目录读取。
+
 也可在本地执行 `./scripts/prepare-ocr.ps1`，再执行 `./scripts/build-release.ps1`。脚本使用受忽略保护的本机签名密钥或现有签名环境变量，构建后扫描程序与模块中的本机路径和凭据。需在不含个人信息的构建目录及 Cargo 缓存中生成发布文件；Rust 路径映射不能替代最终二进制扫描。
 
 ## 当前验证边界

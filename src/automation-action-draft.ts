@@ -26,15 +26,16 @@ export function confirmOcrNumericResult(step: Step) {
 export function requiredScriptVersion(steps: Step[]): number {
   let version = 1;
   for (const step of steps) {
+    if (step.action.type === "scheduleStart") version = 5;
     if (step.action.type === "ocr" && step.action.numericResult === true) version = Math.max(version, 3);
-    if (step.action.type === "match" && step.action.templatePoint !== undefined) version = 4;
+    if (step.action.type === "match" && step.action.templatePoint !== undefined) version = Math.max(version, 4);
     if (step.inputs) {
       version = Math.max(version, 2);
       const values = [...Object.values(step.inputs.values)];
       while (values.length) {
         const item = values.pop()!;
         if (item.kind === "query" && item.action.type === "ocr" && item.action.numericResult === true) version = Math.max(version, 3);
-        if (item.kind === "query" && item.action.type === "match" && item.action.templatePoint !== undefined) version = 4;
+        if (item.kind === "query" && item.action.type === "match" && item.action.templatePoint !== undefined) version = Math.max(version, 4);
         if (item.kind === "binary") values.push(item.left, item.right);
         if (item.kind === "not") values.push(item.value);
       }
@@ -49,6 +50,7 @@ export function actionDraft(type: string): Step {
   const defaults: Record<string, object> = {
     setWindow: { title: "" },
     wait: { ms: 1000 },
+    scheduleStart: { time: "12:00:00" },
     click: { x: -1, y: -1, button: "left", holdMs: 30, jitter: 0 },
     drag: {
       fromX: -1,
@@ -109,6 +111,8 @@ export function actionIssues(
 ): string[] {
   const a = step.action,
     issues: string[] = [];
+  if (a.type === "scheduleStart" && (typeof a.time !== "string" || a.time.length !== 8 || !/^(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$/.test(a.time)))
+    issues.push("定时启动请输入 24 小时制 HH:mm:ss");
   if (a.type === "notify" && !step.inputs?.values.text && !String(a.text ?? "").trim()) issues.push("请填写提示内容");
   if (a.type === "ocr" && a.ocrModel !== undefined && !["small", "tiny"].includes(String(a.ocrModel)))
     issues.push("请选择有效的 OCR 模型");
@@ -183,6 +187,11 @@ export function actionIssues(
     issues.push("请选择起点和终点");
   if (["ocr", "match", "capture"].includes(a.type) && !region(a.region))
     issues.push("请选择区域");
+  if (a.type === "capture" && typeof a.directory === "string") {
+    // An extended-length drive path is local even though it starts with two backslashes.
+    if (/^[\\/]{2}/.test(a.directory) && !/^\\\\\?\\[a-z]:\\/i.test(a.directory))
+      issues.push("截图不能保存到网络位置，请重新选择保存文件夹");
+  }
   if (a.type === "match" && !a.template) issues.push("请选择匹配模板");
   for (const key of [
     "variable",

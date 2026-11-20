@@ -1,7 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { explicitInputWindows } from "../src/automation-input-migration.ts";
-import { standaloneComments } from "../src/automation-comment-migration.ts";
 
 const step = (type, fields = {}, extra = {}) => ({delayMs:0,action:{type,...fields},...extra});
 test("legacy input targets become preceding focus actions in the same branch and preserve timing and content", () => {
@@ -20,8 +19,6 @@ test("legacy input targets become preceding focus actions in the same branch and
   assert.deepEqual(body[5],step("key",{keys:[17,65],holdMs:30}));
   assert.deepEqual(explicitInputWindows(migrated),migrated);
   assert.deepEqual(source,before);
-  const withNotes = standaloneComments(migrated)[0].action.steps;
-  assert.deepEqual(withNotes.slice(0,4).map(s=>s.action.type),["if","focus","text","comment"]);
 });
 test("foreground input stays unchanged and invalid or excessive conversions leave the source intact", () => {
   const source = [step("key",{keys:[32]}),step("text",{text:"hello"})];

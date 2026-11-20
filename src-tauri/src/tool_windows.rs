@@ -1,4 +1,4 @@
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 pub fn is_editor(label: &str) -> bool {
     matches!(label, "tool-crosshair" | "tool-automation")
@@ -16,6 +16,14 @@ pub fn tool(window: &tauri::WebviewWindow, name: &str) -> Result<(), String> {
     } else {
         Err("窗口无权操作此工具".into())
     }
+}
+/// Tool windows hide instead of closing; tell the page so it can release or reopen modules.
+pub fn notify_visibility<R: tauri::Runtime>(emitter: &impl Emitter<R>, label: &str, visible: bool) {
+    let _ = emitter.emit_to(
+        label,
+        "tool-window-visibility",
+        serde_json::json!({ "label": label, "visible": visible }),
+    );
 }
 #[tauri::command]
 pub async fn open_tool_window(
@@ -51,10 +59,10 @@ pub async fn open_tool_window(
             target.show()?;
             target.unminimize()?;
             target.set_focus()?;
+            notify_visibility(&target, label, true);
             Ok(())
         })();
         if let Err(error) = result {
-            use tauri::Emitter;
             let _ = window.emit("toolbox-window-error", error.to_string());
         }
     })

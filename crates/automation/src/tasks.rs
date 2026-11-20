@@ -568,6 +568,42 @@ mod tests {
         }
     }
     #[test]
+    fn unknown_fields_on_field_less_actions_cannot_be_dropped_by_save() {
+        use crate::model::Action;
+        let dir = tempfile::tempdir().unwrap();
+        let id = "12345678-1234-1234-1234-123456789abc";
+        let bytes = include_bytes!("../tests/fixtures/task-v2-unit-action-extra.json");
+        let file = path(dir.path(), id).unwrap();
+        std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+        std::fs::write(&file, bytes).unwrap();
+        assert!(load(dir.path(), id).is_err());
+        let mut fixture: Value = serde_json::from_slice(bytes).unwrap();
+        fixture["script"]["steps"][2]["action"]
+            .as_object_mut()
+            .unwrap()
+            .remove("futureField");
+        let mut task: SavedTask = serde_json::from_value(fixture).unwrap();
+        task.name = "renamed".into();
+        assert!(save(dir.path(), &task).is_err());
+        assert_eq!(std::fs::read(&file).unwrap(), bytes);
+        for kind in [
+            "else",
+            "endIf",
+            "endLoop",
+            "break",
+            "continue",
+            "endWaitUntil",
+        ] {
+            let plain = json!({ "type": kind });
+            let action: Action = serde_json::from_value(plain.clone()).unwrap();
+            assert_eq!(serde_json::to_value(&action).unwrap(), plain);
+            assert!(
+                serde_json::from_value::<Action>(json!({ "type": kind, "extra": 1 })).is_err(),
+                "{kind} accepted an unknown field"
+            );
+        }
+    }
+    #[test]
     fn removed_actions_remain_visible_but_cannot_load_run_or_overwrite() {
         let dir = tempfile::tempdir().unwrap();
         let id = "12345678-1234-1234-1234-123456789abc";

@@ -119,13 +119,14 @@ fn session(path: &Path, device: &str) -> Result<Session> {
             // Explicit static dimensions avoid incorrect dynamic-shape results in RTX EP.
             // The pipeline pads rather than stretching images to these dimensions.
             let detection = path.file_stem().is_some_and(|name| name == "det");
+            let side = i64::from(pipeline::DETECTOR_SIDE);
             builder = builder.with_dimension_override("DynamicDimension.0", 1)?;
             builder = builder.with_dimension_override(
                 "DynamicDimension.1",
-                if detection { 960 } else { 3200 },
+                if detection { side } else { 3200 },
             )?;
             if detection {
-                builder = builder.with_dimension_override("DynamicDimension.2", 960)?;
+                builder = builder.with_dimension_override("DynamicDimension.2", side)?;
             }
             let options = vec![
                 (

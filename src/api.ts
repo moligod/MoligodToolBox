@@ -232,6 +232,11 @@ export const onToolboxWindowError = (callback: (error: string) => void) => liste
 export const toolWindowPage = desktop
   ? ({ "tool-crosshair": "crosshair", "tool-automation": "automation" } as Record<string, string>)[getCurrentWindow().label]
   : new URLSearchParams(location.search).get("tool") ?? undefined;
+/** The host hid this tool window (title-bar close) or showed it again. */
+export const onToolWindowVisibility = (callback: (visible: boolean) => void) =>
+  listen<{ label: string; visible: boolean }>("tool-window-visibility", (event) => {
+    if (event.payload.label === getCurrentWindow().label) callback(event.payload.visible);
+  });
 export async function openToolWindow(tool: string): Promise<void> {
   if (desktop) return invoke("open_tool_window", { tool });
   window.open(`/index.html?tool=${encodeURIComponent(tool)}`, `moligod-${tool}`);

@@ -21,7 +21,7 @@ fn main() {
     let mut module = ModuleClient::new(
         "crosshair",
         root,
-        temp.path().join("override"),
+        None,
         temp.path().join("images"),
         move |_, _| {
             received.fetch_add(1, Ordering::Relaxed);

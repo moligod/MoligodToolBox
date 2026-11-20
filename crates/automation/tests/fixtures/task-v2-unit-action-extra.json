@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 2,
+  "id": "12345678-1234-1234-1234-123456789abc",
+  "name": "unit-extra",
+  "intervalMs": 5000,
+  "script": {
+    "schemaVersion": 1,
+    "name": "unit-extra",
+    "steps": [
+      { "action": { "type": "if", "expression": "true" } },
+      { "action": { "type": "wait", "ms": 1 } },
+      { "action": { "type": "endIf", "futureField": { "keep": true } } }
+    ]
+  }
+}

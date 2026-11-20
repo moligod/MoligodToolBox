@@ -289,10 +289,6 @@ export function installComponents(workspace: Blockly.WorkspaceSvg, roots: () => 
     ];
     if (!loaded || loading) return [{kind:"label",text:"正在读取组件…",id:undefined}];
     if (error) return [{kind:"label",text:error,id:undefined},{kind:"button",text:"重试读取",callbackkey:"COMPONENT_RETRY"}];
-    if (!items.length) return [...contents,
-      {kind:"label",text:"右键选中的积木，点击保存成组件",id:"component-empty-1"},
-      {kind:"label",text:"按 Shift / Ctrl 多选",id:"component-empty-2"},
-    ];
     for (const item of items) {
       const text = [...item.name].length > 14 ? [...item.name].slice(0,14).join("") + "…" : item.name;
       contents.push({kind:"label",text,id:`component-${item.id}`});
@@ -313,37 +309,12 @@ export function installComponents(workspace: Blockly.WorkspaceSvg, roots: () => 
     const svg = workspace.getInjectionDiv().querySelector<SVGSVGElement>(".blocklyFlyout");
     if (!flyout || !svg || !svg.getClientRects().length) return;
     previews.layout();
-    const selected = workspace.getToolbox()?.getSelectedItem();
-    const showEmpty = selected instanceof Blockly.ToolboxCategory && selected.getName() === "组件库" && loaded && !loading && !error && !items.length;
-    let empty = svg.querySelector<SVGGElement>(".auto-component-empty");
-    if (showEmpty && !empty) {
-      empty = document.createElementNS("http://www.w3.org/2000/svg", "g");
-      empty.classList.add("auto-component-empty");
-      empty.setAttribute("role", "status");
-      for (const [index, value] of ["右键选中的积木，点击保存成组件", "按 Shift / Ctrl 多选"].entries()) {
-        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-        text.textContent = value; text.setAttribute("text-anchor", "middle"); text.setAttribute("y", index ? "14" : "-14");
-        empty.append(text);
-      }
-      svg.append(empty);
-    }
-    if (empty) {
-      empty.style.display = showEmpty ? "" : "none";
-      if (showEmpty) {
-        const matrix = svg.getScreenCTM(), bounds = svg.getBoundingClientRect();
-        if (matrix) {
-          const center = new DOMPoint(bounds.left + bounds.width / 2, bounds.top + bounds.height / 2).matrixTransform(matrix.inverse());
-          empty.setAttribute("transform", `translate(${center.x},${center.y})`);
-        }
-      }
-    }
     for (const entry of flyout.getContents()) {
       const label = entry.getElement();
       if (!(label instanceof Blockly.FlyoutButton) || !label.isLabel()) continue;
       const id = (label.info as {id?:string}).id;
       const root = label.getSvgRoot();
       if (id === "component-width") { root.classList.add("auto-component-placeholder", "auto-component-tip"); root.setAttribute("aria-hidden", "true"); continue; }
-      if (id?.startsWith("component-empty-")) { root.classList.add("auto-component-tip", "auto-component-placeholder"); root.setAttribute("aria-hidden", "true"); continue; }
       if (id?.startsWith("component-pan-")) continue;
       const item = items.find(component => id === `component-${component.id}`);
       if (!item && id !== "component-import") continue;

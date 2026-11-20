@@ -9,13 +9,14 @@ export const automationPhases: Record<string, string> = {
 };
 export const actionHelp: Record<string, string> = {
   wait: "等指定秒数后继续。",
+  scheduleStart: "按本机时间等待到指定的时:分:秒，当天已过就等到次日。",
   click: "选择窗口，在截图上点选位置。",
   drag: "在截图上选起点和终点。",
   scroll: "选择方向和次数，每次相当于滚轮一格。",
   key: "在当前窗口按键，支持组合键。",
   keyDown: "持续按住按键，任务结束或停止时自动松开。",
   keyUp: "松开本任务先前按住的按键。",
-  runTask: "运行所选已保存任务一遍，再继续后面的动作；共用变量，不采用子任务的循环和定时设置。",
+  runTask: "运行所选已保存任务一遍，再继续后面的动作；共用变量，不采用子任务的循环和启动延时设置。",
   waitUntil: "把找图、识字等动作放进来，重复执行直到条件成立。超过时限会停止任务。",
   text: "在当前输入框打字；先点选输入框。",
   setWindow:

@@ -54,6 +54,7 @@ impl OcrWorker {
         }
         let mut command = Command::new(root.join("moligod-ocr.exe"));
         command
+            .current_dir(root)
             .args([
                 "--model",
                 model.name(),
@@ -251,9 +252,13 @@ mod tests {
             System::Threading::{OpenProcess, WaitForSingleObject, PROCESS_SYNCHRONIZE},
         };
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../target/ocr-runtime");
-        let fixture =
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/ocr-bilingual.png");
-        let image = image::open(fixture).unwrap().to_rgba8();
+        let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures");
+        let image = image::open(fixtures.join("ocr-bilingual.png"))
+            .unwrap()
+            .to_rgba8();
+        let large = image::open(fixtures.join("ocr-4k-small-text.png"))
+            .unwrap()
+            .to_rgba8();
         let token = Cancellation::default();
         for model in [OcrModel::Small, OcrModel::Tiny] {
             let mut worker = OcrWorker::start_at(&root, model, OcrDevice::Cpu, &token).unwrap();
@@ -261,9 +266,14 @@ mod tests {
             assert!(!process.is_null());
             let result = worker.recognize(&image, &token).unwrap();
             assert_eq!(result, "中文识别测试 12345\nMOLIGOD 67890");
+            // Includes low-contrast small print and a line that crosses the tile seam.
+            assert_eq!(
+                worker.recognize(&large, &token).unwrap().replace(' ', ""),
+                "任务目标\n库存2846\n交易价格59372\n库存记录123456789024680\n装备数量128\n剩余时间09:45\n备件7318\n余额4962\n当前价格318"
+            );
             assert_eq!(
                 crate::ocr_value::format_result(&result, true, true).unwrap(),
-                serde_json::json!(1234567890.0)
+                serde_json::json!(1234567890)
             );
             let blank = RgbaImage::from_pixel(100, 100, image::Rgba([255, 255, 255, 255]));
             let empty = worker.recognize(&blank, &token).unwrap();

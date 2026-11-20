@@ -1,3 +1,105 @@
+# v2.0.1 发布审查修复 · 2026-11-20
+
+- 首次保存回归先复现关窗重开只恢复已提交的旧步骤，也复现保存回复前重开会先加载新文件的旧内容。修复后覆盖提交后不编辑、继续编辑、关窗、回复前重开及换成另一份新草稿。同一草稿保存中的编辑随正式任务 ID 保留。
+- 截图路径回归先复现 `\\?\C:\` 被前端误判，再确认普通盘符、映射盘、扩展盘符通过，UNC 和设备路径仍报错。
+- 原生单测确认模块覆盖需要显式配置，正式宿主的路径检查接受 Program Files 目录、拒绝 LocalAppData 目录。普通权限下用只执行相同 NSIS 安装钩子的测试程序，确认 Program Files 路径返回 0，LocalAppData 路径返回 1，并覆盖由每用户更新进入首个全机安装的分支。
+- `npm test` 192 项、Rust workspace 128 项、离线 OCR small/tiny 回归、依赖边界、前端构建、Rust 格式、workspace Clippy 通过。前端主资源 249.6/254 KiB，按需资源 798.1/799 KiB。
+- 本机签名构建生成 Windows x64 NSIS 安装包。已从安装器和宿主提取实际清单，确认文件版本为 2.0.1、执行级别为 `requireAdministrator`。正式版配置 Clippy 与 release 自动化模块原生验证通过。已验证版本绑定签名、篡改拒绝和模块清单哈希，44 个二进制及发布文件隐私扫描无命中。
+- 现有会话为普通权限，Hyper-V 管理接口拒绝访问。Windows 提权提示、实际全机安装、从 v2.0.0 迁移以及应用内自动更新尚待隔离设备实测。
+
+# 定时启动积木 · 2026-11-20
+
+- “基础操作”新增“定时启动”，以本机 `HH:mm:ss` 等到今天或次日的目标时间。原生停止会取消等待，等待计入任务最长运行时间。含该动作的脚本使用版本 5。
+- Edge 使用模拟桌面接口，在实际页面将积木拖到“任务开始”下方，录入 `07:30:15`，保存请求带有版本 5 与正确时间。记录 `target/schedule-start-browser.json`。
+- 开发与发布自动化模块在隔离目录中通过真实时钟测试，均先进入等待、到点后执行第二步，调用停止后未执行后续动作。两次轮询分别于目标时间后 32、54 毫秒观测到完成，调用停止至观察到停止均为 2 毫秒。记录 `target/schedule-start-native-dev.json` 和 `target/schedule-start-native-release.json`。跨午夜、当天时间已过和非法格式由 Rust 回归覆盖。
+- `npm test` 189 项、自动化单测 62 项与集成 15 项、核心 13 项、存储 9 项、依赖边界、前端构建、Rust 格式和 workspace Clippy 通过。桌面发布构建通过并重建开发与发布模块，产物为 `target/release/moligod.exe`。真实桌面窗口交互未额外点测。
+
+# 动作注解两行自动加宽 · 2026-11-20
+
+- 动作右侧的注解去掉滚动条，达到两行后向右加宽，文字删短后缩回。编辑时最多保留一个手动换行，后续换行合并为空格。读取已有注解时只调整显示，原文保留到重新编辑。
+- Edge 验证常规中文、较长中文、长英文连续字符、多行粘贴、缩回及从已有任务恢复。中文测试宽度由 200 扩至 286 像素，高度与左边缘保持一致，文字完整可见。记录 `target/annotation-width-browser.json`，原生 WebView2 界面未单独验证。
+- `npm test` 187 项、依赖边界和前端构建通过。按需资源通过原 798 KiB 预算检查。
+
+# 动作右侧注解 · 2026-11-20
+
+- 单选动作后点“+”，在右侧就地编辑 `Step.annotation`。失焦时以无底色、无边框的淡灰小字显示，原动作序列不增加步骤。既有独立注解继续读取，旧分支头与结束标记的附属注解保留在原步骤数据中。
+- Edge 验证右侧位置、多行输入、恢复旧附属注解、撤销重做、重新加载、复制所用序列化、空输入失焦及运行时只读。记录 `target/attached-annotation-browser.json`，原生 WebView2 界面未单独验证。
+- `npm test` 187 项、依赖边界及前端构建通过。主资源 248.7/254 KiB，按需资源 797.6/798 KiB。开发和发布自动化模块均通过 Blockly 原生验证脚本，确认原注解随任务保存、读取。两套验证串行执行以使用默认紧急停止快捷键。
+
+# 空任务列表自动打开草稿 · 2026-11-20
+
+- 打开自动化助手时，任务列表成功返回空结果便直接进入未保存的“新任务”，使用默认间隔 1000 毫秒、循环 1 次和空动作序列。同一窗口藏起再打开时恢复已有草稿，有保存任务时仍打开原先默认的第一项。
+- 新增回归覆盖列表读取失败、后台刷新、打开空列表和恢复带步骤的未保存草稿。Edge 使用模拟桌面接口验证实际页面显示“任务开始”画布、关窗重开保留草稿、可正常打开已保存任务。记录 `target/first-automation-task-browser.json`，未安装到原生桌面客户端验证。
+- `npm test` 189 项、依赖边界及前端构建通过。主资源 248.7/254 KiB，按需资源 797.3/798 KiB。
+
+# 选中动作后添加注释 · 2026-11-20
+
+- 单选动作时在右侧显示“+”。点击后在同级序列中紧跟该动作插入现有的独立注释积木，自动聚焦输入框。Ctrl 或 Shift 多选、取消选中及运行期间隐藏按钮。
+- Edge 无头浏览器用现有 Blockly 夹具验证右侧定位、缩放、多行输入、条件分支内插入、撤销重做、多选、运行锁定和销毁。记录 `target/comment-shortcut-browser.json`，原生 WebView2 窗口未单独验证。
+- `npm test` 188 项、依赖边界及前端构建通过。主资源 248.6/254 KiB，按需资源 797.3/798 KiB。
+
+# 运行提示动作更名 · 2026-11-20
+
+- 自动化积木标题、动作选择和摘要统一为“运行提示”。既有积木测试确认含 `${result}` 的 `notify` 动作显示新标题，回存的动作类型和内容一致。
+- `npm test` 188 项、依赖边界及前端构建通过。
+
+# 组件库操作提示 · 2026-11-20
+
+- 组件库底部显示“Ctrl 逐个选，Shift 选范围，右键「保存成组件」”。提示覆盖有组件和空库两种状态，沿用现有快捷键和菜单操作。
+- Edge 无头浏览器通过现有 Blockly 夹具核对空库、有组件、25 项滚动、切换分类及窄窗口。360 像素宽的面板显示一行，190 像素宽时完整换行，长列表最后一项可滚至提示上方。记录 `target/component-hint-browser.json`。
+- `npm test` 188 项、依赖边界及前端构建通过。主资源 248.2/254 KiB，按需资源 796.2/798 KiB。原生 WebView2 窗口未单独验证。
+
+# Windows 正式版启动授权 · 2026-11-20
+
+- `npm run tauri -- build --no-bundle --ci` 通过。Windows SDK `mt.exe` 从 `target/release/moligod.exe` 提取资源 #1 并验证清单，确认执行级别为 `requireAdministrator`，`uiAccess=false`，同时保留 Common Controls 6.0。从普通权限 PowerShell 直接创建进程时，Windows 返回 740（需要提升权限）。
+- 开发版新链接的 `target/debug/deps/moligod.exe` 沿用默认 Tauri 清单。复制到 `target/debug/moligod.exe` 时系统返回访问拒绝。图形 UAC 的确认和取消操作以及安装后自动启动未做交互验收。
+- `npm test` 188 项、核心与存储测试 22 项、依赖边界、前端构建、Rust 格式及 workspace Clippy 均通过。
+
+# 代码审查中低优先级修复 · 2026-11-19
+
+- 范围：同一份 Codex 审查的其余 11 项（7–17），决策见 architecture.md 同日条目。
+- 保存竞态：新增 tests/automation-task-save-race.test.mjs。保存请求挂起期间修改画布和名称，返回后画布、名称保持修改后的内容，旧快照没有重绘；无修改时仍按已保存版本重绘一次。还原修复后，该用例失败。
+- 工具窗口关闭：新增导航测试，隐藏时页面只触发一次 close，已可见时再次显示不会重新激活。宿主的 tool-window-visibility 事件和真实窗口中 release 后模块进程退出，均未手动验证。
+- 宿主任务状态：归档成功后删除缓存条目，模块断开时清空缓存。这段宿主粘合代码没有单测，依据是 module-host 读线程按序先处理事件、再投递回复。
+- 设置备份：新增 atomic_file 单测，覆盖备份内容、主文件替换、目录无残留临时文件，以及原文件超限时不覆盖已有备份。OCR 与快捷键设置的既有备份测试通过。
+- 更新清单：安装前先用 1 MiB 有界读取下载同一份 latest.json，并要求插件解析结果与之一致。未连接 GitHub 实测安装流程，插件自身的读取仍无上限。
+- OCR 结果：新增 tests/automation-ocr-refresh.test.mjs。刷新截图后，迟到的识别结果或失败信息都被丢弃，刷新会在新截图开始前清空结果。还原修复后，两个用例失败。
+- 焦点：预览截图和 OCR 测试完成后，只恢复发起请求且仍可见的窗口，不再唤起主窗。未在真实窗口中验证。
+- 滚轮增量：新增 scroll_delta_range_check_cannot_overflow，±1200 和 ±1 通过，0、±1201、i32::MIN、i32::MAX 被拒。
+- 框选边界：新增前端测试，在 3840×2160 截图上拖过右下角得到完整的 3840×2160 区域，点类坐标仍止于 3839×2159。
+- 协议 shutdown：serve 循环抽出可测试的 serve_requests。新增测试中，版本错误的 shutdown 不进入处理函数，处理失败的 shutdown 继续服务，成功的 shutdown 停止读取后续请求。
+- CI：ci.yml 增加 value_blocks 集成测试与 moligod lib 测试，两条命令本机通过（15 项、12 项）。GitHub Actions 因账号账单锁定，近期运行均未启动。另外 `npm run format:check` 在本机有 88 个文件不符合 Prettier，CI 恢复后格式检查这一步会失败，与本次修改无关。本次新增的两个测试文件已用 Prettier 格式化。
+- 检查结果：automation 单元测试 60 项通过（5 项按原设计忽略），value_blocks 15 项、module-host 2 项、module-protocol 2 项、core/storage 13/9 项、moligod lib 12 项、npm test 188 项均通过。tsc、依赖边界、cargo fmt --check、workspace/all-targets Clippy -D warnings 通过。
+- 桌面 release 构建（--no-bundle --ci）通过：beforeBuildCommand 重建了开发和 release 的准星、自动化模块，主资源 247.5/254 KiB，按需资源 796.6/798 KiB。
+- 未验收：上述真实窗口场景、更新安装流程。
+
+# 代码审查高优先级修复 · 2026-11-19
+
+- 来源：Codex CLI 0.170 以 gpt-6.2-astra、max 推理、只读沙箱审查全仓库，报告 17 项，其中 6 项 High。逐条对照源码核实后修复这 6 项；中低优先级 11 项未改。决策记录见 architecture.md 同日条目。
+- 输入锁：新增单测 `input_lock_waiter_stops_without_waiting_for_holder`。锁被持有时，等待者在取消后 1 秒内返回“已停止”；持有者释放后，等待者正常取得锁。
+- 无字段动作未知键：先用锁定的 serde 1.0.229 单独复现，`{"type":"endIf","extra":1}` 可读入，重新序列化后丢掉 extra。改为空结构变体后，新增固定夹具 `crates/automation/tests/fixtures/task-v2-unit-action-extra.json`。读取被拒绝，改名后保存也被拒绝，原文件字节不变。六种动作仍序列化为 `{"type":"..."}`，带额外键时均报错。
+- IPC 写入：新增 `stalled_module_input_times_out_instead_of_blocking_caller`。模拟写满的管道时，调用在 50ms 截止时间返回“IPC: 模块输入超时”；释放管道后写线程可以 join；正常写入时字节完整送达。真实模块卡住 stdin 的场景未复现。
+- 截图位置：盘符、`\\?\C:\` 与映射盘路径通过；`\\server\share`、`//server/share`、`\\?\UNC\`、`\\.\pipe` 与 `\\localhost\c$` 被拒。已保存的 UNC 任务仍可通过编译校验。前端新增网络位置提示的测试。原生文件夹选择器拒绝网络位置这一路径未手动点测。
+- 找图位置：引擎测试确认点击收到捕获窗口的 (hwnd, pid)，点击后清除；缺少身份或 pid 无效的位置值被拒。原生 `same_window` 单测覆盖换窗和句柄复用两种情况。真实窗口中换绑槽位后点击的场景未手动验证。
+- 轮间隔：新增 `repeat_interval_counts_toward_max_run_time_and_still_stops_promptly`。设 maxRunSeconds=1、间隔 1 小时，任务在 5 秒内以最长运行时间结束；轮间等待中途取消时，状态为 stopped。
+- 检查结果：automation 单元测试 58 项通过（5 项按原设计忽略），value_blocks 集成 15 项、module-host 2 项、module-protocol 1 项、core/storage 13/9 项、npm test 181 项均通过。依赖边界、cargo fmt --check 和 workspace/all-targets Clippy -D warnings 通过。桌面 release 构建（--no-bundle --ci）通过，主资源 246.9/254 KiB，按需资源 796.6/798 KiB。
+- 未验收：真实窗口场景未手动复测。更正：本条初稿称“未重建自动化模块”有误，`npm run tauri build` 的 beforeBuildCommand 会先执行 modules:sync，同时重建开发和 release 模块。src/automation-action-draft.ts、tests/automation-action-draft.test.mjs 和 docs/architecture.md 在 HEAD 已不符合 Prettier，本次未整体重排。
+
+# 大尺寸截图 OCR · 2026-11-19
+
+- 按实际送入 OCR 的区域尺寸选择检测分辨率。长边大于 1920 像素时，检测图长边从原先的 960 提高到 1696–1856 像素。分块共享边界附近的图像，每个位置取一个分块的概率值，再在整张概率图上提取文字框。16:9 大图检测两次，方形大图最多四次，文字识别从原图取样。
+- 使用 v2.0.0 标签的 OCR 源码和本次 release 模块，配同一套模型与运行库，分别读取固定 4K 图。样本有 9 行，包含中文标签、数字和时间，覆盖低对比度小字及跨块长行。按原序逐行核对，忽略半角空格。在 RTX 5080、驱动 616.56 上，完整正确的行数如下。
+
+| 后端 | tiny 旧版 → 本次 | small 旧版 → 本次 |
+| --- | --- | --- |
+| CPU | 8 → 9 | 6 → 9 |
+| 通用显卡（DirectML） | 8 → 9 | 6 → 9 |
+| N 卡专用（TensorRT RTX） | 7 → 8 | 6 → 9 |
+
+- 本机 4K 图片经同一 release worker 连读四次，取后三次请求耗时的中位数，含 PNG 解码与识别。CPU tiny 从 68.4 ms 增至 157.5 ms，small 从 129.0 ms 增至 298.5 ms。5120×192 横条的五行文字，CPU tiny 从 0 行提高到 5 行，small 从 1 行提高到 5 行。CPU、DirectML 两模型均通过 1080p、1440p、4K 横屏、竖屏、方图、宽条、空白及既有双语样本。N 卡专用 tiny 在 4K 横竖图各错一字，两模型在宽条上各读对 4/5 行。方图跨块长行在三后端均完整且只输出一次。
+- 固定样本为 `tests/fixtures/ocr-4k-small-text.png`。两档模型通过自动化模块的 CPU 离线集成回归，含正确文字与顺序、取消和进程释放。修正了该回归仍把整数 OCR 结果期望为浮点数的旧断言。release 模块从测试窗口实际截图、识别数字、执行脚本验证通过。开发模块两档模型也读对 4K 图全部 9 行。release CPU tiny 读取 4096×4096 和 8192×256 空图均返回空文本。项目内 `target/ocr-large-check/` 保存新旧输出和计时记录。
+- 开发及 release 模块重建，npm 测试 180 项、core/storage 13/9 项、OCR 5 项、自动化常规 54 项、依赖边界、前端构建、Rust 格式及 workspace/all-targets Clippy 通过。以上识别率仅针对构造样本。用户原图、实际游戏界面及其他显卡型号待验。
+
 # 官方组件：三角洲单端1920分辨率 · 2026-11-16
 
 - 按用户提供的完整schemaVersion 1动作代码新增official-components/delta-force-single-1920.json，并登记官方目录，补充组件说明。
@@ -2001,3 +2103,9 @@ IF/ElseIf、断言、循环、设置变量、计算变量、标签/跳转的编�
 - 更新既有回归测试，验证默认7个积木、2个表达式、无展开按钮，继续验证正则切换及旧表达式重读。
 - npm test通过174项，npm run build和npm run check:boundaries通过。主资源247.5KiB/254KiB，按需资源795.5KiB/796KiB。
 - 浏览器隔离夹具检查首次选择“条件与取值”即展示两个表达式。截图target/graphite-ui/values-expanded.jpg。桌面构建日志target/advanced-values-desktop-build.log，新版WebView2效果需退出旧客户端后重开验收。
+
+## 2026-11-19 无用文件清理
+
+- 核对三个页面入口、源码、测试和发布脚本后，移除无调用的旧动作选择器及六个无引用的图标。三个构建页面中的本地 src 和 href 路径均可解析。
+- npm test 通过 180 项，npm run check:boundaries 和 npm run build 通过。主资源 246.7 KiB，按需 Blockly 编辑器及离线媒体 796.6 KiB。
+- 历史引擎、临时构建和测试缓存等 9,840 个本地文件已移入 Windows 回收站，逻辑大小 7,275,510,392 字节。清理后，10 份开发、发布和打包模块清单的入口哈希全部匹配，离线 OCR 清单的 31 项资源哈希全部匹配。桌面宿主及自动化引擎继续运行，本轮未启动游戏或重装客户端。

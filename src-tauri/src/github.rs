@@ -210,6 +210,10 @@ async fn install(app: &tauri::AppHandle, expected: &str) -> Result<(), String> {
         release.tag
     ))
     .map_err(|_| "官方更新地址无效")?;
+    // The updater plugin reads its manifest without a size limit, so read the same immutable
+    // release asset through the bounded reader first and require the plugin to agree with it.
+    let checked: serde_json::Value = serde_json::from_slice(&read_github(endpoint.as_str()).await?)
+        .map_err(|_| "官方更新清单无效")?;
     let handle = app.clone();
     let mut update = app
         .updater_builder()
@@ -223,6 +227,9 @@ async fn install(app: &tauri::AppHandle, expected: &str) -> Result<(), String> {
         .await
         .map_err(|_| "无法获取官方更新清单，请确认该 Release 已上传签名更新文件")?
         .ok_or("当前已是最新版本")?;
+    if update.raw_json != checked {
+        return Err("官方更新清单在检查期间发生变化，请重新检查更新".into());
+    }
     if update.version != expected || !valid_download(&update.download_url, &release.tag) {
         return Err("更新清单的版本或下载地址无效".into());
     }
@@ -232,6 +239,8 @@ async fn install(app: &tauri::AppHandle, expected: &str) -> Result<(), String> {
         .await
         .map_err(|e| format!("更新下载或签名校验失败：{e}"))?;
     tauri::async_runtime::spawn_blocking(move || {
+        #[cfg(protected_install)]
+        crate::install_location::prepare_update_temp()?;
         update
             .install(bytes)
             .map_err(|e| format!("更新安装失败：{e}"))

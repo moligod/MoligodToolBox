@@ -14,7 +14,7 @@ fn main() {
     let mut module = ModuleClient::new(
         "automation",
         root,
-        temp.path().join("override"),
+        None,
         temp.path().join("data"),
         move |name, data| {
             if name == "automation-state" {

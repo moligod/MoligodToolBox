@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { JSDOM } from "jsdom";
 import ts from "typescript";
 
 const source = ts
@@ -31,6 +32,64 @@ test("task reorder moves in both directions without changing row data", () => {
   assert.equal(moveTaskRows(rows,"missing","a",false),rows);
   assert.equal(moveTaskRows(rows,"b","b",true),rows);
   assert.equal(moveTaskRows(rows,"a","c",true)[2],rows[0]);
+});
+
+test("opening an empty task list starts an unsaved draft and restores it on reopening", async (t) => {
+  const dom = new JSDOM(readFileSync(new URL("../index.html", import.meta.url), "utf8"));
+  globalThis.window = dom.window;
+  globalThis.document = dom.window.document;
+  t.after(() => {
+    dom.window.close();
+    delete globalThis.document;
+    delete globalThis.window;
+  });
+
+  let script, visible = true, failList = true;
+  const calls = [];
+  const manager = initAutomationTasks({
+    read: () => script,
+    render: (value) => { script = structuredClone(value); },
+    visible: () => visible,
+    highlight: () => {},
+  }, {
+    available: true,
+    async action(method) {
+      calls.push(method);
+      if (method === "task-list") {
+        if (failList) throw new Error("任务列表读取失败");
+        return [];
+      }
+      assert.equal(method, "task-statuses");
+      return {};
+    },
+  });
+
+  await assert.rejects(manager.refresh(true), /任务列表读取失败/);
+  assert.equal(manager.selectedId(), null);
+  failList = false;
+  await manager.refresh();
+  assert.equal(manager.selectedId(), null);
+  visible = false;
+  await manager.refresh(true);
+  assert.equal(manager.selectedId(), null);
+  visible = true;
+  await manager.refresh(true);
+  assert.equal(manager.selectedId(), "");
+  assert.equal(script.name, "新任务");
+  assert.deepEqual(script.steps, []);
+  const name = document.getElementById("auto-task-name");
+  assert.equal(name.value, "新任务");
+  assert.equal(document.getElementById("auto-task-repeats").value, "1");
+  assert.equal(document.getElementById("auto-task-interval").value, "1000");
+
+  name.value = "未保存的任务";
+  script.steps.push({ delayMs: 0, action: { type: "wait", ms: 1000 } });
+  manager.clearSelection();
+  await manager.refresh(true);
+  assert.equal(manager.selectedId(), "");
+  assert.equal(name.value, "未保存的任务");
+  assert.deepEqual(script.steps, [{ delayMs: 0, action: { type: "wait", ms: 1000 } }]);
+  assert.ok(calls.every(method => method === "task-list" || method === "task-statuses"));
 });
 
 for (const toolbar of [false, true]) test(`task actions preserve selected drafts with toolbar=${toolbar}`, async () => {

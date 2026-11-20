@@ -74,10 +74,16 @@ adapter 0 on non-AMD test machines; it is not accepted as a saved UI setting.
 
 RTX compatibility: the pinned EP produced incorrect results with dynamic ONNX
 input dimensions on the RTX 5080 regression fixture. The N-card path therefore
-sets static batch=1, detector=960x960 and recognizer=48x3200. Images are resized
-using the same detector limit and padded with normalized zeros; coordinates are
-mapped using the unpadded extent. Recognition retains the existing 3200-pixel
+sets static batch=1, detector=960x960 and recognizer=48x3200. Each tile is
+padded with normalized zeros. Recognition retains the existing 3200-pixel
 maximum and pads shorter lines. CPU/DML retain their dynamic dimensions. Disk
 cache and CUDA graph capture stay disabled. First-use compilation and larger
 padded tensors are a latency/memory tradeoff; do not claim a GPU speedup without
 measuring the actual workload.
+
+OCR uses the dimensions of the captured region. Regions up to 1920 pixels on the
+long side use one detection pass at a maximum long side of 960. Larger regions
+use a detection map with a long side of 1696–1856 pixels. Up to four overlapping
+tiles contribute scores to that map. Text boxes are extracted once, then each
+line is read from the original capture. This increases detection work for large
+regions while preserving more detail in small text.

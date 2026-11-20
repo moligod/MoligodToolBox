@@ -1,9 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::BTreeSet,
-    io::{Read, Write},
-    path::Path,
-};
+use std::{collections::BTreeSet, io::Read, path::Path};
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -57,23 +53,16 @@ pub fn save(directory: &Path, mut ids: Vec<String>) -> Result<(), String> {
     if ids.len() > 4096 {
         return Err("保存的任务排序数量超过限制，原文件已保留".into());
     }
-    std::fs::create_dir_all(directory).map_err(|e| e.to_string())?;
-    let target = directory.join("task-order.json");
-    if target.exists() {
-        std::fs::copy(&target, directory.join("task-order.json.bak")).map_err(|e| e.to_string())?;
-    }
-    let mut temp = tempfile::NamedTempFile::new_in(directory).map_err(|e| e.to_string())?;
-    temp.write_all(
+    crate::atomic_file::replace_with_backup(
+        directory,
+        "task-order.json",
         &serde_json::to_vec_pretty(&Order {
             schema_version: 1,
             ids,
         })
         .map_err(|e| e.to_string())?,
+        256 * 1024,
     )
-    .map_err(|e| e.to_string())?;
-    temp.as_file().sync_all().map_err(|e| e.to_string())?;
-    temp.persist(target).map_err(|e| e.to_string())?;
-    Ok(())
 }
 
 #[cfg(test)]

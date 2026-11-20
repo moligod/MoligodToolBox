@@ -206,6 +206,9 @@ pub enum Action {
     Wait {
         ms: u32,
     },
+    ScheduleStart {
+        time: String,
+    },
     SetWindow {
         target: Slot,
         title: String,
@@ -272,7 +275,10 @@ pub enum Action {
         timeout_ms: u32,
         interval_ms: u32,
     },
-    EndWaitUntil,
+    // Field-less actions are empty struct variants, not unit variants: serde ignores
+    // unknown keys on internally tagged unit variants despite deny_unknown_fields,
+    // which would let a save silently drop data. The JSON stays {"type":"..."}.
+    EndWaitUntil {},
     Text {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         target: Option<Slot>,
@@ -327,14 +333,14 @@ pub enum Action {
     ElseIf {
         expression: String,
     },
-    Else,
-    EndIf,
+    Else {},
+    EndIf {},
     Loop {
         count: u32,
     },
-    EndLoop,
-    Break,
-    Continue,
+    EndLoop {},
+    Break {},
+    Continue {},
     Label {
         name: String,
     },

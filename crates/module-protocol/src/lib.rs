@@ -56,14 +56,21 @@ pub fn read_frame<T: serde::de::DeserializeOwned>(
         .map(Some)
         .map_err(|e| e.to_string())
 }
-pub fn write_frame(writer: &mut impl Write, value: &impl Serialize) -> Result<(), String> {
+/// Serialize one length-prefixed frame without touching any pipe.
+pub fn encode_frame(value: &impl Serialize) -> Result<Vec<u8>, String> {
     let data = serde_json::to_vec(value).map_err(|e| e.to_string())?;
     if data.len() > MAX_FRAME {
         return Err("模块消息超出大小限制".into());
     }
+    let mut frame = Vec::with_capacity(4 + data.len());
+    frame.extend_from_slice(&(data.len() as u32).to_le_bytes());
+    frame.extend_from_slice(&data);
+    Ok(frame)
+}
+pub fn write_frame(writer: &mut impl Write, value: &impl Serialize) -> Result<(), String> {
+    let frame = encode_frame(value)?;
     writer
-        .write_all(&(data.len() as u32).to_le_bytes())
-        .and_then(|_| writer.write_all(&data))
+        .write_all(&frame)
         .and_then(|_| writer.flush())
         .map_err(|e| e.to_string())
 }
@@ -82,7 +89,7 @@ pub fn emit(output: &Output, name: &str, data: impl Serialize) {
 pub fn serve(
     module: &str,
     output: Output,
-    mut handler: impl FnMut(&str, Value) -> Result<Value, String>,
+    handler: impl FnMut(&str, Value) -> Result<Value, String>,
 ) -> Result<(), String> {
     write_frame(
         &mut *output.lock().map_err(|_| "输出锁异常")?,
@@ -92,14 +99,23 @@ pub fn serve(
             version: env!("CARGO_PKG_VERSION").into(),
         },
     )?;
-    let mut input = std::io::stdin().lock();
-    while let Some(request) = read_frame::<Request>(&mut input)? {
-        let shutdown = request.method == "shutdown";
+    serve_requests(&mut std::io::stdin().lock(), &output, handler)
+}
+/// Answer requests until EOF or an accepted `shutdown`. A shutdown that was rejected
+/// (wrong protocol or handler error) keeps the module serving, so a malformed request
+/// cannot stop running tasks.
+fn serve_requests<W: Write>(
+    input: &mut impl Read,
+    output: &Mutex<W>,
+    mut handler: impl FnMut(&str, Value) -> Result<Value, String>,
+) -> Result<(), String> {
+    while let Some(request) = read_frame::<Request>(input)? {
         let result = if request.protocol != PROTOCOL {
             Err("模块协议版本不兼容".into())
         } else {
             handler(&request.method, request.payload)
         };
+        let stop = request.protocol == PROTOCOL && request.method == "shutdown" && result.is_ok();
         write_frame(
             &mut *output.lock().map_err(|_| "输出锁异常")?,
             &Packet::Reply {
@@ -107,7 +123,7 @@ pub fn serve(
                 result,
             },
         )?;
-        if shutdown {
+        if stop {
             break;
         }
     }
@@ -137,5 +153,45 @@ mod tests {
         assert!(read_frame::<Request>(&mut &bytes[..bytes.len() - 1]).is_err());
         assert!(read_frame::<Request>(&mut &(u32::MAX.to_le_bytes())[..]).is_err());
         assert!(read_frame::<Request>(&mut &[][..]).unwrap().is_none());
+    }
+
+    #[test]
+    fn only_an_accepted_shutdown_ends_the_serve_loop() {
+        let request = |protocol, id, method: &str| Request {
+            protocol,
+            id,
+            method: method.into(),
+            payload: Value::Null,
+        };
+        let mut input = Vec::new();
+        for r in [
+            request(PROTOCOL + 1, 1, "shutdown"),
+            request(PROTOCOL, 2, "shutdown"),
+            request(PROTOCOL, 3, "shutdown"),
+            request(PROTOCOL, 4, "after"),
+        ] {
+            write_frame(&mut input, &r).unwrap();
+        }
+        let output = Mutex::new(Vec::new());
+        let mut calls = Vec::new();
+        serve_requests(&mut input.as_slice(), &output, |method, _| {
+            calls.push(method.to_string());
+            if calls.len() == 1 {
+                Err("still busy".into())
+            } else {
+                Ok(Value::Null)
+            }
+        })
+        .unwrap();
+        // The wrong-protocol shutdown never reaches the handler, the failed shutdown keeps
+        // serving, and the accepted one stops before request 4 is read.
+        assert_eq!(calls, ["shutdown", "shutdown"]);
+        let bytes = output.into_inner().unwrap();
+        let mut replies = bytes.as_slice();
+        let mut ids = Vec::new();
+        while let Some(Packet::Reply { id, result }) = read_frame::<Packet>(&mut replies).unwrap() {
+            ids.push((id, result.is_ok()));
+        }
+        assert_eq!(ids, [(1, false), (2, false), (3, true)]);
     }
 }

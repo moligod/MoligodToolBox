@@ -1,4 +1,4 @@
-import { initNavigation, showPage } from "./navigation";
+import { initNavigation, setToolPageVisible, showPage } from "./navigation";
 import {
   desktop,
   toolWindowPage,
@@ -8,6 +8,7 @@ import {
   startWindowDrag,
   openDeltaGuide,
   openWebsite,
+  onToolWindowVisibility,
   type WindowAction,
   type Config,
 } from "./api";
@@ -123,8 +124,18 @@ if (toolWindowPage) {
   showPage("tools");
 }
 syncControls();
+let loaded = false;
+let toolWindowVisible = true;
+if (toolWindowPage && desktop) {
+  const page = toolWindowPage;
+  void onToolWindowVisibility((visible) => {
+    toolWindowVisible = visible;
+    if (loaded) setToolPageVisible(page, visible);
+  }).catch(failure);
+}
 void load()
   .then((result) => {
+    loaded = true;
     element("app-version").textContent = result.version;
     if (!toolWindowPage) initAppUpdates(element<HTMLButtonElement>("app-version"), result.version);
     settings.initialize(result.config);
@@ -137,7 +148,7 @@ void load()
     );
     renderConfig();
     crosshairEditor?.refresh();
-    if (toolWindowPage) showPage(toolWindowPage);
+    if (toolWindowPage && toolWindowVisible) showPage(toolWindowPage);
     if (!desktop)
       notify("浏览器预览：原生工具请使用桌面客户端。");
   })

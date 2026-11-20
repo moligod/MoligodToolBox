@@ -701,11 +701,23 @@ const find = (workspace, type) =>
 test("standalone notification can be edited and roundtrips without adding a window target", (t) => {
   const steps = [{delayMs:0,action:{type:"notify",text:"完成 ${result}"}}];
   const workspace = load(t,steps), block = find(workspace,"notify");
-  assert.equal(block.getInput("TITLE").fieldRow[0].getValue(),"提示");
+  assert.equal(block.getInput("TITLE").fieldRow[0].getValue(),"运行提示");
   assert.deepEqual(save(workspace),steps);
   block.getInputTargetBlock("VALUE_text").setFieldValue("下一步","VALUE");
   assert.deepEqual(save(workspace),[{delayMs:0,action:{type:"notify",text:"下一步"}}]);
   assert.equal(find(load(t,[{delayMs:0,action:{type:"assert",expression:"true",stopWhenTrue:true,message:"历史内容"}}]),"assert").getField("message"),null);
+});
+
+test("scheduled start is a single editable Blockly action with a local clock time", (t) => {
+  const toolbox = actionToolbox([{ id: "basic", label: "基础操作", actions: [{ type: "scheduleStart", name: "定时启动" }] }]);
+  const contents = toolbox.contents[0].contents;
+  const draft = contents[0].extraState.step;
+  assert.deepEqual(draft.action, { type: "scheduleStart", time: "12:00:00" });
+  const workspace = load(t, [draft]);
+  const block = find(workspace, "scheduleStart");
+  assert.equal(block.getInput("TITLE").fieldRow[0].getValue(), "定时启动");
+  block.setFieldValue("23:59:02", "time");
+  assert.deepEqual(save(workspace), [{ delayMs: 0, action: { type: "scheduleStart", time: "23:59:02" } }]);
 });
 
 test("recognition templates create three distinct supported actions", (t) => {
@@ -779,6 +791,29 @@ test("stop condition shows the inverse for legacy assertions and stores positive
   block.getInputTargetBlock("VALUE_expression").setFieldValue("result < 10","SOURCE");
   assert.deepEqual(save(workspace)[0].action,{type:"assert",expression:"result < 10",message:"停止",stopWhenTrue:true});
   assert.equal(find(load(t,save(workspace)),"assert").getInputTargetBlock("VALUE_expression").getFieldValue("SOURCE"),"result < 10");
+});
+
+test("attached annotations keep existing steps and survive mutation undo and reload", (t) => {
+  const steps = [
+    { delayMs: 17, action: { type: "if", expression: "true" }, annotation: "旧条件注解" },
+    { delayMs: 0, action: { type: "wait", ms: 1000 } },
+    { delayMs: 0, action: { type: "endIf" }, annotation: "旧结束注解" },
+    { delayMs: 0, action: { type: "comment", text: "原有独立注解" } },
+  ];
+  const workspace = load(t, steps);
+  const block = find(workspace, "wait");
+  const before = JSON.stringify(block.readState());
+  block.payload.step.annotation = "等界面加载\n再继续";
+  const event = new Blockly.Events.BlockChange(
+    block, "mutation", null, before, JSON.stringify(block.readState()),
+  );
+  const annotated = structuredClone(steps);
+  annotated[1].annotation = "等界面加载\n再继续";
+  assert.deepEqual(save(workspace), annotated);
+  event.run(false);
+  assert.deepEqual(save(workspace), steps);
+  event.run(true);
+  assert.deepEqual(save(load(t, save(workspace))), annotated);
 });
 
 test("standalone comments preserve multiline text and support mutation undo/redo", (t) => {

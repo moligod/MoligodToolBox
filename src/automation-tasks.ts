@@ -69,6 +69,9 @@ export function initAutomationTasks(
   let dragging: string | undefined, orderSaving = false, refreshVersion = 0;
   const usedNames = new Set<string>();
   let selectionVersion = 0;
+  let newDraftVersion = 0;
+  let pendingFirstSave: string | undefined;
+  const savingTasks = new Set<string>();
   const drafts = new Map<
     string,
     { script: TaskScript; name: string; interval: string; loop: boolean; repeatCount: string }
@@ -88,16 +91,19 @@ export function initAutomationTasks(
     if (height) list.style.maxHeight = `${height + 16}px`;
   }
   window.addEventListener("resize", sizeList);
-  function saveDraft() {
-    if (selectedId === null) return;
-    // Refuse switching invalid scripts rather than silently discarding an unfinished draft.
-    drafts.set(selectedId, {
+  function currentDraft() {
+    return {
       script: options.read(),
       name: input("auto-task-name").value,
       interval: input("auto-task-interval").value,
       loop: loopEnabled,
       repeatCount: input("auto-task-repeats").value,
-    });
+    };
+  }
+  function saveDraft() {
+    if (selectedId === null) return;
+    // Refuse switching invalid scripts rather than silently discarding an unfinished draft.
+    drafts.set(selectedId, currentDraft());
   }
   function syncLoop() {
     input("auto-task-interval").disabled = !loopEnabled;
@@ -384,6 +390,7 @@ export function initAutomationTasks(
   function newTask(preserve = true) {
     if (preserve) saveDraft();
     ++selectionVersion;
+    ++newDraftVersion;
     if (selectedId !== null) usedNames.add(input("auto-task-name").value);
     drafts.delete("");
     selectedId = "";
@@ -409,17 +416,23 @@ export function initAutomationTasks(
     paint();
     options.highlight(undefined);
   }
-  async function refresh(selectFirst = false) {
+  async function refresh(openInitialTask = false) {
     if (!backend.available) return;
     const version = ++refreshVersion, selection = selectionVersion;
     const nextRows = await backend.action<TaskRow[]>("task-list");
     const nextStatuses =
       await backend.action<Record<string, AutomationStatus>>("task-statuses");
     if (version !== refreshVersion) return;
-    rows = nextRows;
+    // The file can appear before its save reply. Keep its draft selectable until the ID is applied.
+    rows = nextRows.filter((row) => row.id !== pendingFirstSave);
     statuses = nextStatuses;
-    if (selectFirst && selectedId === null && rows.length && selection === selectionVersion && options.visible()) {
-      await selectTask(rows[0].id);
+    if (openInitialTask && selectedId === null && selection === selectionVersion && options.visible()) {
+      const firstId = rows[0]?.id ?? (drafts.has("") ? "" : undefined);
+      if (firstId === undefined) {
+        newTask(false);
+        return;
+      }
+      await selectTask(firstId);
     }
     paint();
     showResults();
@@ -457,7 +470,18 @@ export function initAutomationTasks(
     options.exportScript({ ...source.script, name: edited?.name ?? source.name, repeats: Number(edited?.repeatCount ?? source.repeatCount ?? (source.loop ? 0 : 1)) });
   }
   async function save(previousId: string) {
+    if (savingTasks.has(previousId)) return;
+    savingTasks.add(previousId);
+    try {
+      await saveTask(previousId);
+    } finally {
+      savingTasks.delete(previousId);
+      if (!previousId) pendingFirstSave = undefined;
+    }
+  }
+  async function saveTask(previousId: string) {
     const version = selectionVersion, savedPosition = draftIndex;
+    const submittedDraftVersion = newDraftVersion;
     if (previousId === selectedId) saveDraft();
     const originalDraft = drafts.get(previousId);
     let draft = originalDraft;
@@ -488,6 +512,7 @@ export function initAutomationTasks(
     )
       throw new Error("请填写任务名称及100–3600000毫秒间隔");
     const id = previousId || crypto.randomUUID();
+    if (!previousId) pendingFirstSave = id;
     const task: SavedTask = {
       schemaVersion: 2,
       id,
@@ -509,14 +534,25 @@ export function initAutomationTasks(
       await backend.action("open");
       await backend.action("task-save", task);
     }
-    if (version === selectionVersion && selectedId === previousId) {
-      selectedId = id;
-      options.render({ ...script, name });
+    if (previousId || submittedDraftVersion === newDraftVersion) {
+      const active = selectedId === previousId;
+      let latest = drafts.get(previousId);
+      if (active) {
+        try { latest = currentDraft(); } catch { latest = undefined; }
+        selectedId = id;
+      }
+      const unchanged = JSON.stringify(latest) === JSON.stringify(originalDraft);
+      const latestEdit = rowEdits.get(previousId);
       drafts.delete(previousId);
+      rowEdits.delete(previousId);
+      // Closing the window snapshots the draft too. Its edits follow the saved task ID.
+      if (latest && !unchanged) drafts.set(id, latest);
+      if (latestEdit && latestEdit !== edited) rowEdits.set(id, latestEdit);
+      if (active && version === selectionVersion && unchanged && latestEdit === edited)
+        options.render({ ...script, name });
     }
-    if (drafts.get(previousId) === originalDraft && rowEdits.get(previousId) === edited) drafts.delete(previousId);
-    if (rowEdits.get(previousId) === edited) rowEdits.delete(previousId);
     if (previousId === "") {
+      pendingFirstSave = undefined;
       try {
         const current = await backend.action<TaskRow[]>("task-list");
         const ids = current.filter(row=>row.id !== id).map(row=>row.id);
@@ -598,6 +634,7 @@ export function initAutomationTasks(
     importScript(script: TaskScript) {
       saveDraft();
       ++selectionVersion;
+      ++newDraftVersion;
       selectedId = "";
       draftIndex = 0;
       drafts.delete("");

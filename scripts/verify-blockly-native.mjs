@@ -10,7 +10,6 @@ import {
   scriptToWorkspace,
   workspaceToScript,
 } from "../src/automation-blockly-codec.ts";
-import { standaloneComments } from "../src/automation-comment-migration.ts";
 import { explicitInputWindows } from "../src/automation-input-migration.ts";
 import { actionDraft } from "../src/automation-action-draft.ts";
 const core = new URL("./blockly.mjs", import.meta.resolve("blockly/core")).href;
@@ -198,7 +197,7 @@ try {
   assert.equal((await call("validate", converted)).valid, true);
   const migrated = convert({
     ...original,
-    steps: standaloneComments(explicitInputWindows(original.steps)),
+    steps: explicitInputWindows(original.steps),
   });
   assert.equal((await call("validate", migrated)).valid, true);
   const migratedId = "b10c0000-0000-4000-8000-000000000003";
@@ -353,7 +352,7 @@ try {
     supportedLegacyActionsValidated: true,
     removedActionsAndRpcRejected: true,
     legacyTaskSavedAndLoaded: true,
-    migratedCommentsValidatedAndSaved: true,
+    annotationsPreservedAfterInputMigration: true,
     nativeInputSent: false,
     nestedValuesSavedReloadedAndExecuted:true,
     valueStatus,

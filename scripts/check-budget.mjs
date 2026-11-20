@@ -22,7 +22,7 @@ const isBlockly = (file) =>
   );
 for (const [name, entries, budget] of [
   ["Application", files.filter((file) => !isBlockly(file)), 254],
-  ["Lazy Blockly editor + offline media", files.filter(isBlockly), 798],
+  ["Lazy Blockly editor + offline media", files.filter(isBlockly), 799],
 ]) {
   const bytes = entries.reduce((sum, file) => sum + file.size, 0);
   console.log(
