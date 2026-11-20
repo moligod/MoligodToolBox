@@ -45,6 +45,10 @@ v2.0.1 起安装包使用全机安装，目标固定为 `Program Files\MoligodTo
 
 ## 当前验证边界
 
-源码已上传至正式 `MoligodToolBox` main 分支。官方组件目录与示例公开读取均返回HTTP200，示例内容与本机一致。v2.0.0已公开发布并标记Latest，包含Windows x64安装包、签名、latest.json与SHA256SUMS.txt。四个GitHub附件的服务端SHA-256均与本机一致；公开更新清单及安装包地址HTTP200，更新清单内容一致。[v2.0.0](https://github.com/moligod/MoligodToolBox/releases/tag/v2.0.0)
+v2.0.1 已发布为 Latest。Windows runner 实际安装了两个版本，验证了全机安装迁移、保留旧任务和桌面启动。公开更新清单、下载地址及四个附件 SHA-256 均已核对。[v2.0.1](https://github.com/moligod/MoligodToolBox/releases/tag/v2.0.1) · [Windows 升级测试](https://github.com/moligod/MoligodToolBox/actions/runs/44758544876)
+
+## v2.0.0 历史验证
+
+源码已上传至正式 `MoligodToolBox` main 分支。官方组件目录与示例公开读取均返回HTTP200，示例内容与本机一致。v2.0.0发布时标记为Latest，包含Windows x64安装包、签名、latest.json与SHA256SUMS.txt。四个GitHub附件的服务端SHA-256均与本机一致；公开更新清单及安装包地址HTTP200，更新清单内容一致。[v2.0.0](https://github.com/moligod/MoligodToolBox/releases/tag/v2.0.0)
 
 GitHub Actions因账号账单锁定而未能启动，本轮采用本机签名构建。GPU运行库采用经作者同意的限定链接例外并随包保留供应商许可；跨版本真实安装及游戏环境需另行验收。[第三方声明](../THIRD_PARTY_NOTICES.md)

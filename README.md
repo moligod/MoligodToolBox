@@ -4,7 +4,7 @@
 
 当前源码版本为 **2.0.1**，桌面客户端使用 Tauri 2、TypeScript 和 Rust，工具通过独立进程按需启动。关闭主窗口后可通过系统托盘重新打开或退出。
 
-[下载 v2.0.0 Windows x64 安装包](https://github.com/moligod/MoligodToolBox/releases/download/v2.0.0/MoligodToolBox_2.0.0_x64-setup.exe) · [发布说明](https://github.com/moligod/MoligodToolBox/releases/tag/v2.0.0)
+[下载 v2.0.1 Windows x64 安装包](https://github.com/moligod/MoligodToolBox/releases/download/v2.0.1/MoligodToolBox_2.0.1_x64-setup.exe) · [发布说明](https://github.com/moligod/MoligodToolBox/releases/tag/v2.0.1)
 
 ## 许可与署名
 

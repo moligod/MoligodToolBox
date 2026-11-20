@@ -5,7 +5,9 @@
 - 原生单测确认模块覆盖需要显式配置，正式宿主的路径检查接受 Program Files 目录、拒绝 LocalAppData 目录。普通权限下用只执行相同 NSIS 安装钩子的测试程序，确认 Program Files 路径返回 0，LocalAppData 路径返回 1，并覆盖由每用户更新进入首个全机安装的分支。
 - `npm test` 192 项、Rust workspace 128 项、离线 OCR small/tiny 回归、依赖边界、前端构建、Rust 格式、workspace Clippy 通过。前端主资源 249.6/254 KiB，按需资源 798.1/799 KiB。
 - 本机签名构建生成 Windows x64 NSIS 安装包。已从安装器和宿主提取实际清单，确认文件版本为 2.0.1、执行级别为 `requireAdministrator`。正式版配置 Clippy 与 release 自动化模块原生验证通过。已验证版本绑定签名、篡改拒绝和模块清单哈希，44 个二进制及发布文件隐私扫描无命中。
-- 现有会话为普通权限，Hyper-V 管理接口拒绝访问。Windows 提权提示、实际全机安装、从 v2.0.0 迁移以及应用内自动更新尚待隔离设备实测。
+- GitHub 隔离 Windows runner 下载并核对了 v2.0.0 和最终签名版 v2.0.1 的安装包哈希。先安装旧版，再用 `/S /UPDATE` 实际升级到 Program Files。验证拒绝安装到用户可写目录，普通用户组对宿主、自动化和 OCR 程序无写入权限，旧任务文件字节一致，安装后的自动化模块可读取旧任务，工具箱主窗可启动。[Windows 升级测试](https://github.com/moligod/MoligodToolBox/actions/runs/44758544876)
+- v2.0.1 已标记 GitHub Latest。四个附件的服务端 SHA-256 与本机相同，公开 `latest.json` 内容一致，安装地址返回 HTTP 200。[v2.0.1 Release](https://github.com/moligod/MoligodToolBox/releases/tag/v2.0.1)
+- 全仓 Prettier 在 GitHub 报告 84 个文件不符合规范，发布前基线本机检查报告 83 个。Windows 测试使用管理员 runner 静默安装，交互式 UAC 和从应用界面触发完整联网更新未单独点测。[Foundation checks](https://github.com/moligod/MoligodToolBox/actions/runs/44757661603)
 
 # 定时启动积木 · 2026-11-20
 
