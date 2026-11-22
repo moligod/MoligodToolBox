@@ -6,6 +6,10 @@ use std::time::Duration;
 use tauri::Manager;
 use tauri_plugin_updater::UpdaterExt;
 
+#[path = "update_download.rs"]
+mod update_download;
+
+const MIRROR: &str = "https://dl.trovebbs.com/moligod-toolbox";
 const REPOSITORY: &str = "moligod/MoligodToolBox";
 const RAW_ROOT: &str =
     "https://raw.githubusercontent.com/moligod/MoligodToolBox/main/official-components";
@@ -52,6 +56,8 @@ pub(crate) struct Release {
     version: String,
     tag: String,
     notes: String,
+    #[serde(skip)]
+    mirror: bool,
 }
 
 fn valid_id(id: &str) -> bool {
@@ -105,6 +111,7 @@ fn newer_release(bytes: &[u8], current: &str) -> Result<Option<Release>, String>
         return Ok(None);
     }
     Ok(Some(Release {
+        mirror: false,
         version: version.to_string(),
         tag: release.tag_name,
         notes: release
@@ -147,12 +154,59 @@ async fn read_github(url: &str) -> Result<Vec<u8>, String> {
     Ok(bytes)
 }
 
-async fn latest_release() -> Result<Option<Release>, String> {
+async fn github_release() -> Result<Option<Release>, String> {
     let bytes = read_github(&format!(
         "https://api.github.com/repos/{REPOSITORY}/releases/latest"
     ))
     .await?;
     newer_release(&bytes, env!("CARGO_PKG_VERSION"))
+}
+
+fn from_mainland() -> bool {
+    #[cfg(windows)]
+    {
+        use windows::Win32::Globalization::{GetUserGeoID, GEOCLASS_NATION};
+        // Windows home region (China = 45); Hong Kong has a separate ID.
+        unsafe { GetUserGeoID(GEOCLASS_NATION) == 45 }
+    }
+    #[cfg(not(windows))]
+    {
+        false
+    }
+}
+
+fn mirror_release(bytes: &[u8], current: &str) -> Result<Option<Release>, String> {
+    #[derive(Deserialize)]
+    struct Manifest {
+        version: String,
+        notes: Option<String>,
+    }
+    let manifest: Manifest = serde_json::from_slice(bytes).map_err(|_| "国内更新清单格式无效")?;
+    let v = Version::parse(&manifest.version).map_err(|_| "国内更新版本号无效")?;
+    let current = Version::parse(current).map_err(|_| "本机版本号无效")?;
+    if !v.pre.is_empty() || !v.build.is_empty() || !v.cmp_precedence(&current).is_gt() {
+        return Ok(None);
+    }
+    Ok(Some(Release {
+        version: v.to_string(),
+        tag: format!("v{v}"),
+        notes: manifest
+            .notes
+            .unwrap_or_default()
+            .chars()
+            .take(10000)
+            .collect(),
+        mirror: true,
+    }))
+}
+
+async fn latest_release() -> Result<Option<Release>, String> {
+    if from_mainland() {
+        if let Ok(bytes) = read_github(&format!("{MIRROR}/latest.json")).await {
+            return mirror_release(&bytes, env!("CARGO_PKG_VERSION"));
+        }
+    }
+    github_release().await
 }
 
 #[tauri::command]
@@ -205,17 +259,22 @@ async fn install(app: &tauri::AppHandle, expected: &str) -> Result<(), String> {
     if release.version != expected {
         return Err("官方最新版本已变化，请重新检查更新".into());
     }
-    let endpoint = Url::parse(&format!(
-        "https://github.com/{REPOSITORY}/releases/download/{}/latest.json",
-        release.tag
-    ))
-    .map_err(|_| "官方更新地址无效")?;
+    let release_root = if release.mirror {
+        format!("{MIRROR}/releases/{}", release.tag)
+    } else {
+        format!(
+            "https://github.com/{REPOSITORY}/releases/download/{}",
+            release.tag
+        )
+    };
+    let endpoint =
+        Url::parse(&format!("{release_root}/latest.json")).map_err(|_| "官方更新地址无效")?;
     // The updater plugin reads its manifest without a size limit, so read the same immutable
     // release asset through the bounded reader first and require the plugin to agree with it.
     let checked: serde_json::Value = serde_json::from_slice(&read_github(endpoint.as_str()).await?)
         .map_err(|_| "官方更新清单无效")?;
     let handle = app.clone();
-    let mut update = app
+    let update = app
         .updater_builder()
         .endpoints(vec![endpoint])
         .map_err(|e| e.to_string())?
@@ -230,14 +289,60 @@ async fn install(app: &tauri::AppHandle, expected: &str) -> Result<(), String> {
     if update.raw_json != checked {
         return Err("官方更新清单在检查期间发生变化，请重新检查更新".into());
     }
-    if update.version != expected || !valid_download(&update.download_url, &release.tag) {
+    let allowed = if release.mirror {
+        update.download_url.as_str()
+            == format!("{release_root}/MoligodToolBox_{expected}_x64-setup.exe")
+    } else {
+        valid_download(&update.download_url, &release.tag)
+    };
+    if update.version != expected || !allowed {
         return Err("更新清单的版本或下载地址无效".into());
     }
-    update.timeout = Some(Duration::from_secs(600));
-    let bytes = update
-        .download(|_, _| {}, || {})
-        .await
-        .map_err(|e| format!("更新下载或签名校验失败：{e}"))?;
+    let client = Client::builder()
+        .user_agent(concat!("MoligodToolBox/", env!("CARGO_PKG_VERSION")))
+        .connect_timeout(Duration::from_secs(10))
+        .timeout(Duration::from_secs(600))
+        .build()
+        .map_err(|e| e.to_string())?;
+    let map_url = format!("{release_root}/windows-x64.blocks.json");
+    let map = match read_github(&map_url).await {
+        Ok(b) => Some(update_download::BlockMap::parse(&b).map_err(|e| e.to_string())?),
+        Err(_) => None,
+    };
+    #[cfg(protected_install)]
+    let cache = {
+        crate::install_location::prepare_update_temp()?;
+        std::env::current_exe()
+            .map_err(|e| e.to_string())?
+            .parent()
+            .ok_or("安装目录无效")?
+            .join("update-cache")
+    };
+    #[cfg(not(protected_install))]
+    let cache = app
+        .path()
+        .app_cache_dir()
+        .map_err(|e| e.to_string())?
+        .join("updates");
+    let pubkey = app
+        .config()
+        .plugins
+        .0
+        .get("updater")
+        .and_then(|cfg| cfg.get("pubkey"))
+        .and_then(|v| v.as_str())
+        .ok_or("缺少更新公钥")?;
+    let bytes = update_download::download(
+        &client,
+        &update.download_url,
+        &cache,
+        map,
+        &update.signature,
+        expected,
+        pubkey,
+    )
+    .await
+    .map_err(|e| format!("更新下载或签名校验失败：{e}"))?;
     tauri::async_runtime::spawn_blocking(move || {
         #[cfg(protected_install)]
         crate::install_location::prepare_update_temp()?;
@@ -289,6 +394,20 @@ mod tests {
             .unwrap()
             .is_none());
         assert!(newer_release(&release("../bad", false, false), "0.1.0").is_err());
+    }
+
+    #[test]
+    fn mirror_uses_stable_versions_and_preserves_release_notes() {
+        let bytes = br#"{"version":"2.1.0","notes":"release notes"}"#;
+        let update = mirror_release(bytes, "2.0.9").unwrap().unwrap();
+        assert!(update.mirror);
+        assert_eq!(update.tag, "v2.1.0");
+        assert_eq!(update.notes, "release notes");
+        assert!(mirror_release(bytes, "2.1.0").unwrap().is_none());
+        assert!(mirror_release(br#"{"version":"2.2.0-beta.1"}"#, "2.1.0")
+            .unwrap()
+            .is_none());
+        assert!(mirror_release(br#"{"version":"../other-tool"}"#, "2.1.0").is_err());
     }
 
     #[test]

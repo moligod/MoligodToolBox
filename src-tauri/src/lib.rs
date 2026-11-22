@@ -341,6 +341,10 @@ async fn automation_action(
                 .is_some_and(|rows| rows.values().any(|row| row["running"] == true));
             if !legacy_running && !tasks_running {
                 module.shutdown();
+            } else if module.is_started() {
+                // Running tasks keep the module alive; drop only the editor's preview frame
+                // and kept OCR worker. Older modules reject the call, which changes nothing.
+                let _ = module.call("release-editor", Value::Null);
             }
             return Ok(Value::Null);
         }

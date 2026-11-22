@@ -1,8 +1,26 @@
 # 官方组件与版本更新
 
-客户端固定使用 `moligod/MoligodToolBox` 作为官方仓库，组件目录位于 main 分支的 `official-components/`，版本更新读取正式 GitHub Releases。
+客户端固定使用 `moligod/MoligodToolBox` 作为官方仓库，组件目录位于 main 分支的 `official-components/`，v2.0.1 及以前读取正式 GitHub Releases。新版的下载源和发布流程见下节。
 
 该仓库由原 `DF-AutomatedTool` 重命名承接，保留原 Stars、Forks、Issues 和提交历史。原先创建的私有空仓库已改名为 `moligod-toolkit-empty-backup`。重构源码已接续原 main 历史上传，官方目录及示例文件已通过公开 HTTP 读取验证。
+
+## 宁波下载源和分块更新
+
+`dl.trovebbs.com` 按工具分目录。工具箱的当前清单位于 `/moligod-toolbox/latest.json`，版本文件位于 `/moligod-toolbox/releases/v<版本>/`。新工具选用自己的目录和签名密钥。站点通过 HTTPS 反向代理到只读下载服务。新增工具可以复用同一个容器。
+
+桌面端用 Windows“国家或地区”选源。中国大陆优先使用宁波，国内清单网络请求失败时尝试 GitHub。香港及其他地区使用官方 GitHub Release。此选择不调用公网 IP 定位服务。安装前再次检查版本，并从选中来源的版本目录读取不可变清单。
+
+发布正式 GitHub Release 后，在含有已签名安装包、同名 .sig 和 GitHub 版 latest.json 的本地目录执行，例如：
+
+```powershell
+./scripts/publish-download-source.ps1 -ReleaseDirectory 'target/releases/v2.0.1' -SshHost '<SSH 别名>' -RemoteWebRoot '<远端站点根目录>'
+```
+
+脚本先验证官方安装包签名及签名中的版本和文件名，按白名单上传并核对 SHA-256，最后原子替换工具自己的 latest.json。同一版本只能重复发布相同内容。国内清单使用宁波直链，安装包与签名沿用同一份发布附件。GitHub Actions 在草稿内附加 windows-x64.blocks.json。本地手工发布时，把生成于 target/download-site/moligod-toolbox/releases/v<版本>/ 的同名索引同时附在 GitHub Release。
+
+新版安装器逐文件压缩，并将自身保存为安装目录 update-cache/installed-base.exe。更新时按 SHA-256 复用旧安装包的相同块，按 HTTP Range 请求其余部分。下载进度保存在 update-cache/download.part，重试时根据签名及完整块校验恢复，最终验证整个安装包的官方签名和签名版本。没有旧缓存或索引时仍支持完整包下载；源站忽略 Range 时接受重新开始的完整响应。每台机器需额外预留约一个安装包大小作为基准，更新期间还需暂存空间。首次从旧客户端进入此流程要先安装一次新客户端。
+
+下载站通过 HTTP-01 验证并支持自动续期。生产下载可用性应从公网验证 HTTPS 清单及安装包 Range 响应。
 
 ## 使用方式
 

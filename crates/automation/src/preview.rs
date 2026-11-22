@@ -29,6 +29,10 @@ impl PreviewFrame {
         self.frame = Some((id.clone(), image));
         Ok(id)
     }
+    /// Drop the frame when the editor closes while tasks keep the module running.
+    pub fn clear(&mut self) {
+        self.frame = None;
+    }
     pub fn crop(&self, snapshot: &str, region: Region) -> Result<RgbaImage, String> {
         let (_, image) = self
             .frame

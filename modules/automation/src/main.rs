@@ -46,6 +46,7 @@ fn run() -> Result<(), String> {
         )
     });
     let mut preview = moligod_automation::preview::PreviewFrame::default();
+    let mut manual_ocr = native::ManualOcr::new(directory.clone());
     let result = serve("automation", output, |method, payload| match method {
         "hotkey-settings" => Ok(json!(moligod_automation::hotkey_settings::load(
             &directory
@@ -207,8 +208,7 @@ fn run() -> Result<(), String> {
                 let region: Region =
                     serde_json::from_value(payload["region"].clone()).map_err(|e| e.to_string())?;
                 let image = preview.crop(snapshot, region)?;
-                let mut driver = native::NativeDriver::new(directory.clone())?;
-                let text = driver.recognize(&image, &Cancellation::default())?;
+                let text = manual_ocr.recognize(&image, &Cancellation::default())?;
                 return ocr_preview(
                     &text,
                     payload["numbersOnly"] == true,
@@ -219,7 +219,6 @@ fn run() -> Result<(), String> {
                 serde_json::from_value(payload.get("window").cloned().ok_or("缺少窗口")?)
                     .map_err(|e| e.to_string())?;
             let token = Cancellation::default();
-            let mut driver = native::NativeDriver::new(directory.clone())?;
             let numbers_only = payload
                 .get("numbersOnly")
                 .and_then(serde_json::Value::as_bool)
@@ -236,7 +235,7 @@ fn run() -> Result<(), String> {
                 return Err("截图期间窗口缩放发生变化，请刷新截图".into());
             }
             if method == "ocr-test" {
-                let text = driver.recognize(&image, &token)?;
+                let text = manual_ocr.recognize(&image, &token)?;
                 return ocr_preview(&text, numbers_only, payload["numericResult"] == true);
             }
             let width = image.width();
@@ -244,6 +243,12 @@ fn run() -> Result<(), String> {
             let png = STANDARD.encode(native::png_preview(&image)?);
             let snapshot = preview.replace(image)?;
             Ok(json!({"width":width,"height":height,"scale":scale,"snapshot":snapshot,"png":png}))
+        }
+        // Sent by the host when the editor closes while tasks keep this module running.
+        "release-editor" => {
+            preview.clear();
+            manual_ocr.release();
+            Ok(serde_json::Value::Null)
         }
         _ => Err("未知自动化模块操作".into()),
     });

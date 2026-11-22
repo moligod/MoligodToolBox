@@ -209,6 +209,7 @@ fn main() {
         if std::env::args().any(|arg| arg == "--module-ocr")
             || std::env::args().any(|arg| arg == "--module-ocr-snapshot")
             || std::env::args().any(|arg| arg == "--module-ocr-models")
+            || std::env::args().any(|arg| arg == "--module-ocr-idle")
             || std::env::args().any(|arg| arg == "--module-tasks")
             || std::env::args().any(|arg| arg == "--module-position")
         {
@@ -385,6 +386,42 @@ fn main() {
                 return Ok(());
             }
 
+            if std::env::args().any(|arg| arg == "--module-ocr-idle") {
+                // Watch the process tree from outside: the kept worker must exit about 60 s
+                // after the last manual test and at once on release-editor.
+                if std::env::args().any(|arg| arg == "--with-nvidia") {
+                    module.call(
+                        "ocr-settings-save",
+                        serde_json::json!({"schemaVersion":1,"model":"small","device":"nvidia"}),
+                    )?;
+                }
+                let payload =
+                    serde_json::json!({"window":window,"region":region,"numbersOnly":true});
+                let test = |module: &mut moligod_module_host::ModuleClient, label: &str| {
+                    let started = std::time::Instant::now();
+                    let result = module.call("ocr-test", payload.clone())?;
+                    assert_eq!(result["text"], "12345", "{result}");
+                    println!(
+                        "{label}: ocr-test {:.1} ms",
+                        started.elapsed().as_secs_f64() * 1e3
+                    );
+                    Ok::<_, String>(())
+                };
+                for round in 0..3 {
+                    test(&mut module, &format!("round {round}"))?;
+                }
+                println!("IDLE-WAIT 70 s");
+                std::thread::sleep(Duration::from_secs(70));
+                test(&mut module, "after idle")?;
+                println!("RELEASE-EDITOR");
+                module.call("release-editor", serde_json::Value::Null)?;
+                std::thread::sleep(Duration::from_secs(3));
+                module.shutdown();
+                println!(
+                    "PASS: manual OCR worker reused, released after idle and on release-editor."
+                );
+                return Ok(());
+            }
             if std::env::args().any(|arg| arg == "--module-tasks") {
                 for (id, name) in [
                     ("12345678-1234-1234-1234-123456789abc", "task1"),

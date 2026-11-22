@@ -1,3 +1,4 @@
+pub use crate::ocr::ManualOcr;
 use crate::{
     engine::{Driver, Plan},
     model::*,
@@ -433,6 +434,12 @@ fn same_window(window: &BoundWindow, expected: Option<(u64, u32)>) -> Result<(),
 impl Driver for NativeDriver {
     fn set_scale(&mut self, scale: Option<u32>) {
         self.scale = scale;
+    }
+    /// A live WGC session copies every presented frame of the game window even while the
+    /// task only waits. Reopening costs about 0.13 s, so long pauses release it. The OCR
+    /// worker stays: it is idle on a pipe read and TensorRT RTX takes seconds to restart.
+    fn idle(&mut self) {
+        self.capture.take();
     }
     fn local_time_ms(&self) -> Result<u64, String> {
         let mut local = SYSTEMTIME::default();

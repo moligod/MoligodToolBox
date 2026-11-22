@@ -22,3 +22,19 @@ FunctionEnd
     StrCpy $UpdateMode 0
   ${EndIf}
 !macroend
+
+!macro NSIS_HOOK_POSTINSTALL
+  CreateDirectory "$INSTDIR\update-cache"
+  Push $0
+  System::Call 'kernel32::CopyFileW(w "$EXEPATH", w "$INSTDIR\update-cache\installed-base.exe", i 0)i.r0'
+  Pop $0
+  Delete "$INSTDIR\update-cache\download.part"
+  Delete "$INSTDIR\update-cache\download.id"
+!macroend
+
+!macro NSIS_HOOK_POSTUNINSTALL
+  Delete "$INSTDIR\update-cache\installed-base.exe"
+  Delete "$INSTDIR\update-cache\download.part"
+  Delete "$INSTDIR\update-cache\download.id"
+  RMDir "$INSTDIR\update-cache"
+!macroend

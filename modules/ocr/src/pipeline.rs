@@ -14,6 +14,11 @@ use std::ops::Range;
 
 pub(crate) const DETECTOR_SIDE: u32 = 960;
 const TWO_TILE_SIDE: u32 = 2 * (DETECTOR_SIDE - 32);
+const REC_MIN_WIDTH: u32 = 320;
+pub(crate) const REC_MAX_WIDTH: u32 = 3200;
+/// Fixed-shape recognizer widths, ascending. Padding a short line out to the long
+/// width changes the CTC result, so short lines get their own session.
+pub(crate) const RECOGNIZER_WIDTHS: [u32; 2] = [REC_MIN_WIDTH, REC_MAX_WIDTH];
 
 // Work in detector pixels. Each core owns its scores exactly once; neighbouring
 // tiles see extra context on both sides of the seam. All extents align to stride 32.
@@ -59,18 +64,32 @@ pub struct Detection {
 type Quad = [Point<f32>; 4];
 pub struct Engine {
     det: Session,
-    rec: Session,
+    /// One dynamic-shape session, or one per RECOGNIZER_WIDTHS entry for fixed shapes.
+    rec: Vec<Session>,
     config: Config,
     fixed_shapes: bool,
 }
 
 impl Engine {
-    pub fn new(det: Session, rec: Session, mut config: Config, fixed_shapes: bool) -> Result<Self> {
+    pub fn new(
+        det: Session,
+        rec: Vec<Session>,
+        mut config: Config,
+        fixed_shapes: bool,
+    ) -> Result<Self> {
         if config.characters.is_empty()
             || !config.det.thresh.is_finite()
             || config.det.unclip_ratio <= 0.0
         {
             return Err("无效 OCR 配置".into());
+        }
+        let sessions = if fixed_shapes {
+            RECOGNIZER_WIDTHS.len()
+        } else {
+            1
+        };
+        if rec.len() != sessions {
+            return Err("无效 OCR 识别会话".into());
         }
         config.characters.insert(0, String::new());
         config.characters.push(" ".into());
@@ -131,17 +150,7 @@ impl Engine {
 
     pub fn recognize(&mut self, image: &RgbImage) -> Result<String> {
         let (w, h) = image.dimensions();
-        let long = w.max(h);
-        // Fit widescreen captures in one row or column. Squarer captures need
-        // four tiles to retain detail. 1696 is the stride-aligned 16:9 width at 960 high.
-        let limit = if long > 1920 {
-            (long * DETECTOR_SIDE / w.min(h)).clamp(1696, TWO_TILE_SIDE)
-        } else {
-            DETECTOR_SIDE
-        };
-        let ratio = (limit as f32 / long as f32).min(1.0);
-        let dw = (((w as f32 * ratio).floor() / 32.0).round_ties_even() as u32 * 32).max(32);
-        let dh = (((h as f32 * ratio).floor() / 32.0).round_ties_even() as u32 * 32).max(32);
+        let (dw, dh) = detector_size(w, h);
         let mut boxes = self.detect(image, dw, dh)?;
         for points in &mut boxes {
             for p in points {
@@ -170,11 +179,7 @@ impl Engine {
                 continue;
             };
             let ratio = crop.width() as f32 / crop.height() as f32;
-            let width = if self.fixed_shapes {
-                3200
-            } else {
-                ((48.0 * ratio).max(320.0) as u32).min(3200)
-            };
+            let (width, session) = recognizer_input(ratio, self.fixed_shapes);
             let content_width = ((48.0 * ratio).ceil() as u32).clamp(1, width);
             let input = normalized_region(
                 &crop,
@@ -184,7 +189,7 @@ impl Engine {
                 (width, 48),
                 false,
             );
-            let outputs = self.rec.run(ort::inputs![Tensor::from_array((
+            let outputs = self.rec[session].run(ort::inputs![Tensor::from_array((
                 [1, 3, 48, width as usize],
                 input
             ))?])?;
@@ -204,8 +209,38 @@ impl Engine {
     }
 }
 
+/// Recognizer input width for a crop's aspect ratio, and the index of its session.
+/// Dynamic shapes use the PaddleOCR width; fixed shapes use the narrowest one that fits.
+fn recognizer_input(ratio: f32, fixed_shapes: bool) -> (u32, usize) {
+    let width = ((48.0 * ratio).max(REC_MIN_WIDTH as f32) as u32).min(REC_MAX_WIDTH);
+    if !fixed_shapes {
+        return (width, 0);
+    }
+    let index = RECOGNIZER_WIDTHS
+        .iter()
+        .position(|&fixed| fixed >= width)
+        .unwrap_or(RECOGNIZER_WIDTHS.len() - 1);
+    (RECOGNIZER_WIDTHS[index], index)
+}
+
+/// Detection map size: stride-32 dimensions after fitting the capture to the tile limit.
+fn detector_size(w: u32, h: u32) -> (u32, u32) {
+    let long = w.max(h);
+    // Fit widescreen captures in one row or column. Squarer captures need
+    // four tiles to retain detail. 1696 is the stride-aligned 16:9 width at 960 high.
+    let limit = if long > 1920 {
+        (long * DETECTOR_SIDE / w.min(h)).clamp(1696, TWO_TILE_SIDE)
+    } else {
+        DETECTOR_SIDE
+    };
+    let ratio = (limit as f32 / long as f32).min(1.0);
+    let dw = (((w as f32 * ratio).floor() / 32.0).round_ties_even() as u32 * 32).max(32);
+    let dh = (((h as f32 * ratio).floor() / 32.0).round_ties_even() as u32 * 32).max(32);
+    (dw, dh)
+}
+
 // OpenCV-compatible half-pixel bilinear resize; BGR order is intentional and
-// matches the official Paddle OCR input pipeline. Padding stays normalized zero.
+// matches the official Paddle OCR input pipeline.
 fn normalized_region(
     image: &RgbImage,
     size: (u32, u32),
@@ -216,32 +251,58 @@ fn normalized_region(
 ) -> Vec<f32> {
     let stride = padded.0 as usize;
     let plane = stride * padded.1 as usize;
-    let mut out = vec![0.0; 3 * plane];
     let means = [0.485, 0.456, 0.406];
     let stds = [0.229, 0.224, 0.225];
-    for (y, sample_y) in rows.enumerate() {
-        let fy = ((sample_y as f32 + 0.5) * image.height() as f32 / size.1 as f32 - 0.5).max(0.0);
-        let y0 = fy.floor() as u32;
-        let y1 = (y0 + 1).min(image.height() - 1);
-        let ay = fy - y0 as f32;
-        for (x, sample_x) in cols.clone().enumerate() {
-            let fx =
-                ((sample_x as f32 + 0.5) * image.width() as f32 / size.0 as f32 - 0.5).max(0.0);
+    // A rounded sample is one of 256 integers, so normalization is a table lookup.
+    let table: [[f32; 256]; 3] = std::array::from_fn(|c| {
+        std::array::from_fn(|k| {
+            let v = k as f32 / 255.0;
+            if det {
+                (v - means[c]) / stds[c]
+            } else {
+                (v - 0.5) * 2.0
+            }
+        })
+    });
+    // Detection pads with black pixels, as PaddleOCR pads detector training crops.
+    // Normalized zero is mid gray, which hides text beside a dark game UI when the
+    // fixed RTX input is mostly padding. Recognition keeps PaddleOCR's zero padding.
+    let mut out = Vec::with_capacity(3 * plane);
+    for channel in &table {
+        out.resize(out.len() + plane, if det { channel[0] } else { 0.0 });
+    }
+    let (width, height) = image.dimensions();
+    let pixels = image.as_raw();
+    let row_bytes = width as usize * 3;
+    // Column weights are shared by every row; the arithmetic is unchanged per sample.
+    let columns: Vec<(usize, usize, f32)> = cols
+        .map(|sample_x| {
+            let fx = ((sample_x as f32 + 0.5) * width as f32 / size.0 as f32 - 0.5).max(0.0);
             let x0 = fx.floor() as u32;
-            let x1 = (x0 + 1).min(image.width() - 1);
-            let ax = fx - x0 as f32;
+            let x1 = (x0 + 1).min(width - 1);
+            (x0 as usize * 3, x1 as usize * 3, fx - x0 as f32)
+        })
+        .collect();
+    for (y, sample_y) in rows.enumerate() {
+        let fy = ((sample_y as f32 + 0.5) * height as f32 / size.1 as f32 - 0.5).max(0.0);
+        let y0 = fy.floor() as u32;
+        let y1 = (y0 + 1).min(height - 1);
+        let ay = fy - y0 as f32;
+        let top_row = &pixels[y0 as usize * row_bytes..][..row_bytes];
+        let bottom_row = &pixels[y1 as usize * row_bytes..][..row_bytes];
+        for (x, &(x0, x1, ax)) in columns.iter().enumerate() {
             for c in 0..3 {
                 let channel = 2 - c;
-                let top = image.get_pixel(x0, y0)[channel] as f32 * (1.0 - ax)
-                    + image.get_pixel(x1, y0)[channel] as f32 * ax;
-                let bottom = image.get_pixel(x0, y1)[channel] as f32 * (1.0 - ax)
-                    + image.get_pixel(x1, y1)[channel] as f32 * ax;
-                let v = (top * (1.0 - ay) + bottom * ay).round() / 255.0;
-                out[c * plane + y * stride + x] = if det {
-                    (v - means[c]) / stds[c]
-                } else {
-                    (v - 0.5) * 2.0
-                };
+                let top =
+                    top_row[x0 + channel] as f32 * (1.0 - ax) + top_row[x1 + channel] as f32 * ax;
+                let bottom = bottom_row[x0 + channel] as f32 * (1.0 - ax)
+                    + bottom_row[x1 + channel] as f32 * ax;
+                // Non-negative round-half-away-from-zero, identical to f32::round
+                // without the C runtime call; x - trunc(x) is exact here.
+                let value = top * (1.0 - ay) + bottom * ay;
+                let whole = value as u32;
+                let rounded = whole + u32::from(value - whole as f32 >= 0.5);
+                out[c * plane + y * stride + x] = table[c][rounded.min(255) as usize];
             }
         }
     }
@@ -464,20 +525,101 @@ mod tests {
     }
 
     #[test]
-    fn tiles_sample_the_same_pixels_as_the_full_map_and_zero_both_padding_axes() {
+    fn tiles_sample_the_same_pixels_as_the_full_map_and_pad_both_axes_with_black() {
         let image = RgbImage::from_fn(11, 9, |x, y| Rgb([x as u8, y as u8, (x * y) as u8]));
         let full = normalized_region(&image, (8, 6), 0..8, 0..6, (8, 6), true);
         let tile = normalized_region(&image, (8, 6), 2..7, 3..5, (8, 4), true);
+        let black = normalized_region(&RgbImage::new(1, 1), (1, 1), 0..1, 0..1, (1, 1), true);
         for channel in 0..3 {
             for y in 0..4 {
                 for x in 0..8 {
                     let expected = if y < 2 && x < 5 {
                         full[channel * 48 + (3 + y) * 8 + 2 + x]
                     } else {
-                        0.0
+                        black[channel]
                     };
                     assert_eq!(tile[channel * 32 + y * 8 + x], expected);
                 }
+            }
+        }
+    }
+    #[test]
+    fn row_slices_match_the_per_pixel_resize_bit_for_bit() {
+        fn reference(
+            image: &RgbImage,
+            size: (u32, u32),
+            cols: Range<u32>,
+            rows: Range<u32>,
+            padded: (u32, u32),
+            det: bool,
+        ) -> Vec<f32> {
+            let stride = padded.0 as usize;
+            let plane = stride * padded.1 as usize;
+            let means = [0.485, 0.456, 0.406];
+            let stds = [0.229, 0.224, 0.225];
+            let mut out: Vec<f32> = (0..3)
+                .flat_map(|c| {
+                    let black = if det { (0.0 - means[c]) / stds[c] } else { 0.0 };
+                    vec![black; plane]
+                })
+                .collect();
+            for (y, sample_y) in rows.enumerate() {
+                let fy = ((sample_y as f32 + 0.5) * image.height() as f32 / size.1 as f32 - 0.5)
+                    .max(0.0);
+                let y0 = fy.floor() as u32;
+                let y1 = (y0 + 1).min(image.height() - 1);
+                let ay = fy - y0 as f32;
+                for (x, sample_x) in cols.clone().enumerate() {
+                    let fx = ((sample_x as f32 + 0.5) * image.width() as f32 / size.0 as f32 - 0.5)
+                        .max(0.0);
+                    let x0 = fx.floor() as u32;
+                    let x1 = (x0 + 1).min(image.width() - 1);
+                    let ax = fx - x0 as f32;
+                    for c in 0..3 {
+                        let channel = 2 - c;
+                        let top = image.get_pixel(x0, y0)[channel] as f32 * (1.0 - ax)
+                            + image.get_pixel(x1, y0)[channel] as f32 * ax;
+                        let bottom = image.get_pixel(x0, y1)[channel] as f32 * (1.0 - ax)
+                            + image.get_pixel(x1, y1)[channel] as f32 * ax;
+                        let v = (top * (1.0 - ay) + bottom * ay).round() / 255.0;
+                        out[c * plane + y * stride + x] = if det {
+                            (v - means[c]) / stds[c]
+                        } else {
+                            (v - 0.5) * 2.0
+                        };
+                    }
+                }
+            }
+            out
+        }
+        let mut seed = 0x9e37_79b9_u32;
+        for (w, h) in [(1, 1), (7, 3), (97, 41), (640, 352), (1920, 1080)] {
+            let image = RgbImage::from_fn(w, h, |_, _| {
+                seed ^= seed << 13;
+                seed ^= seed >> 17;
+                seed ^= seed << 5;
+                Rgb([seed as u8, (seed >> 8) as u8, (seed >> 16) as u8])
+            });
+            let (dw, dh) = detector_size(w, h);
+            let cases = [
+                ((dw, dh), 0..dw, 0..dh, (dw, dh), true),
+                ((dw, dh), dw / 3..dw, dh / 2..dh, (dw, dh), true),
+                (
+                    (w * 2 + 5, 48),
+                    0..w * 2 + 5,
+                    0..48,
+                    (w * 2 + 37, 48),
+                    false,
+                ),
+            ];
+            for (size, cols, rows, padded, det) in cases {
+                let fast = normalized_region(&image, size, cols.clone(), rows.clone(), padded, det);
+                let slow = reference(&image, size, cols, rows, padded, det);
+                assert_eq!(fast.len(), slow.len());
+                assert!(fast
+                    .iter()
+                    .zip(&slow)
+                    .all(|(a, b)| a.to_bits() == b.to_bits()));
             }
         }
     }
@@ -501,6 +643,86 @@ mod tests {
         assert_eq!(v[1], 0.0);
         assert_eq!(v[3], 0.0);
     }
+    #[test]
+    fn fixed_recognizer_width_is_the_narrowest_session_that_fits() {
+        // 48 px high: up to 320 wide uses the short session, wider lines the long one.
+        assert_eq!(recognizer_input(4.0, true), (320, 0));
+        assert_eq!(recognizer_input(320.0 / 48.0, true), (320, 0));
+        assert_eq!(recognizer_input(7.0, true), (3200, 1));
+        assert_eq!(recognizer_input(200.0, true), (3200, 1));
+        // Dynamic shapes keep the PaddleOCR width and the only session.
+        assert_eq!(recognizer_input(4.0, false), (320, 0));
+        assert_eq!(recognizer_input(7.0, false), (336, 0));
+        assert_eq!(recognizer_input(200.0, false), (3200, 0));
+    }
+    /// Stage timings for the CPU worker path. Run after scripts/prepare-ocr.ps1:
+    /// cargo test -p moligod-ocr --release -- --ignored --nocapture stage_timings
+    #[test]
+    #[ignore = "requires target/ocr-runtime and target/ocr-large-check images"]
+    fn stage_timings() {
+        use std::time::Instant;
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../target");
+        let runtime = root.join("ocr-runtime");
+        let _ = ort::init_from(runtime.join("directml/onnxruntime.dll"))
+            .unwrap()
+            .with_telemetry(false)
+            .commit();
+        let model = std::env::var("BENCH_MODEL").unwrap_or_else(|_| "small".into());
+        let directory = runtime.join("models").join(&model);
+        let config: Config =
+            serde_json::from_slice(&std::fs::read(directory.join("config.json")).unwrap()).unwrap();
+        let mut engine = Engine::new(
+            crate::session(&directory.join("det.onnx"), "cpu", DETECTOR_SIDE).unwrap(),
+            vec![crate::session(&directory.join("rec.onnx"), "cpu", REC_MAX_WIDTH).unwrap()],
+            config,
+            false,
+        )
+        .unwrap();
+        let checks = root.join("ocr-large-check");
+        let full = image::open(checks.join("1080p.png")).unwrap().to_rgb8();
+        let crop = |x, y, w, h| image::imageops::crop_imm(&full, x, y, w, h).to_image();
+        let cases = [
+            ("num-320x48", crop(870, 290, 320, 48)),
+            ("panel-640x360", crop(800, 200, 640, 360)),
+            ("1080p", full.clone()),
+            ("4k", image::open(checks.join("4k.png")).unwrap().to_rgb8()),
+        ];
+        let median = |mut v: Vec<f64>| {
+            v.sort_by(f64::total_cmp);
+            v[v.len() / 2]
+        };
+        for (name, image) in cases {
+            let (dw, dh) = detector_size(image.width(), image.height());
+            let (mut norm, mut det, mut total) = (vec![], vec![], vec![]);
+            let mut text = String::new();
+            for _ in 0..5 {
+                let t = Instant::now();
+                std::hint::black_box(normalized_region(
+                    &image,
+                    (dw, dh),
+                    0..dw,
+                    0..dh,
+                    (dw, dh),
+                    true,
+                ));
+                norm.push(t.elapsed().as_secs_f64() * 1e3);
+                let t = Instant::now();
+                std::hint::black_box(engine.detect(&image, dw, dh).unwrap());
+                det.push(t.elapsed().as_secs_f64() * 1e3);
+                let t = Instant::now();
+                text = engine.recognize(&image).unwrap();
+                total.push(t.elapsed().as_secs_f64() * 1e3);
+            }
+            println!(
+                "{model} {name}: det-normalize {:.1} detect {:.1} recognize {:.1} ms; {:?}",
+                median(norm),
+                median(det),
+                median(total),
+                text.replace('\n', "|")
+            );
+        }
+    }
+
     #[test]
     fn db_recovers_rectangle_and_rejects_blank() {
         let cfg = Detection {

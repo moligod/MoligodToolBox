@@ -20,6 +20,10 @@ pub trait Driver {
     fn resolve_window(&mut self, _title: &str) -> Result<BoundWindow, String> {
         Err("当前驱动不支持设置窗口".into())
     }
+    /// Called before a known pause of at least `IDLE_RELEASE`: a long wait or step delay,
+    /// the repeat interval or a scheduled start. Drivers may release sessions that cost
+    /// resources while unused; the next action reopens them.
+    fn idle(&mut self) {}
     fn perform(
         &mut self,
         action: &Action,
@@ -27,6 +31,8 @@ pub trait Driver {
         cancel: &Cancellation,
     ) -> Result<Option<(String, Value)>, String>;
 }
+/// Pauses this long make reopening a capture session (about 0.13 s) negligible.
+pub const IDLE_RELEASE: Duration = Duration::from_secs(10);
 pub struct Plan {
     pub script: Script,
     expressions: HashMap<usize, Expr>,
@@ -584,6 +590,9 @@ impl Plan {
                     } else {
                         0
                     };
+                if Duration::from_millis(delay) >= IDLE_RELEASE {
+                    driver.idle();
+                }
                 if wait(Duration::from_millis(delay))? {
                     break 'outer;
                 }
@@ -593,6 +602,9 @@ impl Plan {
                         let mut now = driver.local_time_ms()?;
                         let target = schedule_target_ms(now, schedule_time_ms(time)?);
                         if now < target {
+                            if Duration::from_millis(target - now) >= IDLE_RELEASE {
+                                driver.idle();
+                            }
                             let notice = status.notice.replace(format!("等待定时启动 {time}"));
                             status.phase = "scheduled".into();
                             report(status.clone());
@@ -631,6 +643,9 @@ impl Plan {
                         } else {
                             Duration::from_millis(u64::from(*ms))
                         };
+                        if duration >= IDLE_RELEASE {
+                            driver.idle();
+                        }
                         if wait(duration)? {
                             break 'outer;
                         }
@@ -1004,6 +1019,9 @@ impl Plan {
             if (self.script.repeats == 0 || iteration < self.script.repeats)
                 && self.script.interval_ms > 0
             {
+                if Duration::from_millis(u64::from(self.script.interval_ms)) >= IDLE_RELEASE {
+                    driver.idle();
+                }
                 // The pause between repeats counts toward the maximum run time. Ending
                 // here also drops the driver, which releases any keys still held.
                 let run_deadline =
@@ -1442,6 +1460,65 @@ mod tests {
         stopper.join().unwrap();
         assert_eq!(status.phase, "stopped");
         assert!(started.elapsed() < Duration::from_secs(5));
+    }
+    #[test]
+    fn long_pauses_let_the_driver_release_idle_sessions() {
+        struct Idle(usize);
+        impl Driver for Idle {
+            fn idle(&mut self) {
+                self.0 += 1;
+            }
+            fn perform(
+                &mut self,
+                _: &Action,
+                _: &Bindings,
+                _: &Cancellation,
+            ) -> Result<Option<(String, Value)>, String> {
+                panic!("unexpected IO")
+            }
+        }
+        let stop_soon = || {
+            let cancel = Cancellation::default();
+            let stopper = cancel.clone();
+            (
+                cancel,
+                std::thread::spawn(move || {
+                    std::thread::sleep(Duration::from_millis(50));
+                    stopper.cancel();
+                }),
+            )
+        };
+        let mut long_wait = script(vec![Action::Wait { ms: 1 }, Action::Wait { ms: 10_000 }]);
+        long_wait.max_run_seconds = 60;
+        let mut repeat = script(vec![Action::Wait { ms: 1 }]);
+        repeat.repeats = 2;
+        repeat.max_run_seconds = 60;
+        repeat.interval_ms = 10_000;
+        let mut delayed = script(vec![Action::Wait { ms: 1 }]);
+        delayed.max_run_seconds = 60;
+        delayed.steps[0].delay_ms = 10_000;
+        for source in [long_wait, repeat, delayed] {
+            let mut driver = Idle(0);
+            let (cancel, stopper) = stop_soon();
+            let status = Plan::compile(source)
+                .unwrap()
+                .run(&mut driver, &Bindings::new(), &cancel, |_| {})
+                .unwrap();
+            stopper.join().unwrap();
+            assert_eq!(status.phase, "stopped");
+            assert_eq!(driver.0, 1);
+        }
+        let mut short = Idle(0);
+        Plan::compile(script(vec![Action::Wait { ms: 1 }]))
+            .unwrap()
+            .run(
+                &mut short,
+                &Bindings::new(),
+                &Cancellation::default(),
+                |_| {},
+            )
+            .unwrap();
+        assert_eq!(short.0, 0);
     }
     fn script(actions: Vec<Action>) -> Script {
         Script {

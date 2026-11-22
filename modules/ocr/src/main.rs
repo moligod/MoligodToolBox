@@ -9,6 +9,13 @@ use std::{
 };
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
+/// 2: requests are a JSON header followed by raw RGB rows instead of a PNG path.
+const PROTOCOL: u32 = 2;
+
+fn within_limits(w: u64, h: u64) -> Option<(u32, u32)> {
+    (w > 0 && h > 0 && w.max(h) <= 8192 && w * h <= 16_777_216).then_some((w as u32, h as u32))
+}
+
 fn emit(value: Value) -> Result<()> {
     let mut output = io::stdout().lock();
     serde_json::to_writer(&mut output, &value)?;
@@ -75,7 +82,9 @@ fn directml_adapter() -> Result<i32> {
     Err("显卡识别仅支持 Windows".into())
 }
 
-fn session(path: &Path, device: &str) -> Result<Session> {
+/// `side` is the fixed RTX input: the detector square or a recognizer width.
+/// CPU and DirectML keep dynamic shapes and ignore it.
+fn session(path: &Path, device: &str, side: u32) -> Result<Session> {
     let mut builder = Session::builder()?
         .with_intra_threads(2)?
         .with_inter_threads(1)?
@@ -119,12 +128,9 @@ fn session(path: &Path, device: &str) -> Result<Session> {
             // Explicit static dimensions avoid incorrect dynamic-shape results in RTX EP.
             // The pipeline pads rather than stretching images to these dimensions.
             let detection = path.file_stem().is_some_and(|name| name == "det");
-            let side = i64::from(pipeline::DETECTOR_SIDE);
+            let side = i64::from(side);
             builder = builder.with_dimension_override("DynamicDimension.0", 1)?;
-            builder = builder.with_dimension_override(
-                "DynamicDimension.1",
-                if detection { side } else { 3200 },
-            )?;
+            builder = builder.with_dimension_override("DynamicDimension.1", side)?;
             if detection {
                 builder = builder.with_dimension_override("DynamicDimension.2", side)?;
             }
@@ -179,13 +185,29 @@ fn run() -> Result<()> {
     let directory = models.join(&model);
     let config: pipeline::Config =
         serde_json::from_slice(&std::fs::read(directory.join("config.json"))?)?;
+    let fixed_shapes = device == "nvidia";
+    let rec = directory.join("rec.onnx");
+    // TensorRT RTX compiles each fixed-shape session while loading, one at a time
+    // even from parallel threads; the short-line session adds about 2.7 s.
+    let rec = if fixed_shapes {
+        pipeline::RECOGNIZER_WIDTHS
+            .iter()
+            .map(|&width| session(&rec, &device, width))
+            .collect::<Result<Vec<_>>>()?
+    } else {
+        vec![session(&rec, &device, pipeline::REC_MAX_WIDTH)?]
+    };
     let mut engine = pipeline::Engine::new(
-        session(&directory.join("det.onnx"), &device)?,
-        session(&directory.join("rec.onnx"), &device)?,
+        session(
+            &directory.join("det.onnx"),
+            &device,
+            pipeline::DETECTOR_SIDE,
+        )?,
+        rec,
         config,
-        device == "nvidia",
+        fixed_shapes,
     )?;
-    emit(json!({"ready":true,"model":model,"device":device,"runtime":"rust"}))?;
+    emit(json!({"ready":true,"model":model,"device":device,"runtime":"rust","protocol":PROTOCOL}))?;
     let mut input = io::stdin().lock();
     loop {
         let mut line = Vec::new();
@@ -195,14 +217,28 @@ fn run() -> Result<()> {
         if line.len() > 32768 || !line.ends_with(b"\n") {
             return Err("OCR 请求超过限制".into());
         }
+        let value: Value = serde_json::from_slice(&line)?;
+        // Raw RGB rows follow the header on stdin. A header that cannot be trusted leaves
+        // the stream out of sync, so it ends the process instead of answering.
+        let raw = match (value["width"].as_u64(), value["height"].as_u64()) {
+            (Some(w), Some(h)) if value["format"] == "rgb8" => {
+                let (w, h) = within_limits(w, h).ok_or("OCR 图片超过尺寸限制")?;
+                let mut pixels = vec![0; w as usize * h as usize * 3];
+                input.read_exact(&mut pixels)?;
+                Some(image::RgbImage::from_raw(w, h, pixels).ok_or("OCR 图片长度错误")?)
+            }
+            _ if value.get("image").is_none() => return Err("OCR 请求格式无效".into()),
+            _ => None,
+        };
         let request = (|| -> Result<String> {
-            let value: Value = serde_json::from_slice(&line)?;
+            if let Some(image) = &raw {
+                return engine.recognize(image);
+            }
+            // Diagnostic path for benchmark scripts; the automation engine sends raw pixels.
             let path = value["image"].as_str().ok_or("缺少 OCR 图片")?;
             let reader = image::ImageReader::open(path)?.with_guessed_format()?;
             let (w, h) = reader.into_dimensions()?;
-            if w == 0 || h == 0 || w.max(h) > 8192 || u64::from(w) * u64::from(h) > 16_777_216 {
-                return Err("OCR 图片超过尺寸限制".into());
-            }
+            within_limits(w.into(), h.into()).ok_or("OCR 图片超过尺寸限制")?;
             let image = image::open(path)?.to_rgb8();
             engine.recognize(&image)
         })();

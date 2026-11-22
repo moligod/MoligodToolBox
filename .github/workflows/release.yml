@@ -66,3 +66,15 @@ jobs:
       - name: Check release privacy
         shell: pwsh
         run: node scripts/check-release-privacy.mjs
+
+      - name: Attach the Windows download block index
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          gh release download $env:RELEASE_TAG --dir target/feed-input --pattern 'latest.json' --pattern '*x64-setup.exe' --pattern '*x64-setup.exe.sig'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/stage-download-source.py target/feed-input target/download-site
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          gh release upload $env:RELEASE_TAG "target/download-site/moligod-toolbox/releases/$env:RELEASE_TAG/windows-x64.blocks.json" --clobber

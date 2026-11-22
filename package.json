@@ -3,7 +3,7 @@
   "description": "Windows 本地游戏工具箱，提供自定义准星与可视化自动化助手",
   "license": "SEE LICENSE IN LICENSE-EXCEPTION",
   "private": true,
-  "version": "2.0.1",
+  "version": "2.0.2",
   "type": "module",
   "scripts": {
     "dev": "vite",

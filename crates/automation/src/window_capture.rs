@@ -85,11 +85,21 @@ fn copy_frame(window: &BoundWindow, r: Region, frame: &mut Frame) -> Result<Rgba
     {
         return Err("客户区与截图边界不匹配".into());
     }
-    let buffer = frame
+    let mut buffer = frame
         .buffer_crop(x as u32, y as u32, x as u32 + r.width, y as u32 + r.height)
         .map_err(|e| e.to_string())?;
-    let mut storage = Vec::new();
-    let pixels = buffer.as_nopadding_buffer(&mut storage).to_vec();
+    // One row-by-row copy out of the mapped staging texture. The crate's unpadding helper
+    // copies twice and starts a process-wide thread pool that never exits.
+    let row = r.width as usize * 4;
+    let pitch = buffer.row_pitch() as usize;
+    let raw = buffer.as_raw_buffer();
+    if pitch < row || raw.len() < pitch * (r.height as usize - 1) + row {
+        return Err("截图像素长度错误".into());
+    }
+    let mut pixels = Vec::with_capacity(row * r.height as usize);
+    for line in raw.chunks(pitch).take(r.height as usize) {
+        pixels.extend_from_slice(&line[..row]);
+    }
     RgbaImage::from_raw(r.width, r.height, pixels).ok_or_else(|| "截图像素长度错误".into())
 }
 impl GraphicsCaptureApiHandler for OneFrame {
