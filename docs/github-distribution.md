@@ -55,7 +55,7 @@
 4. 工作流构建 NSIS 安装包和更新签名，在该标签下创建草稿 Release，上传安装包、签名及 latest.json。
 5. 核对草稿中的安装包和签名清单，完成目标 Windows 环境验收后发布正式 Release，并将该版本标记为 Latest。
 
-工作流按标签源码构建并检查版本一致性。普通本地构建沿用开发构建方式；签名更新产物由 release 工作流通过 `createUpdaterArtifacts` 生成。更新下载地址限定于官方仓库及用户确认的版本标签，安装前由 Tauri updater 验证签名。[Tauri updater](https://v2.tauri.app/plugin/updater/) · [Tauri GitHub Action](https://github.com/tauri-apps/tauri-action)
+工作流按标签源码构建并检查版本一致性。普通本地构建沿用开发构建方式；签名更新产物由 release 工作流通过 `createUpdaterArtifacts` 生成。下载安装包前限定更新源及确认的版本，安装前用内置公钥验证完整包签名和签名版本。[Tauri updater](https://v2.tauri.app/plugin/updater/) · [Tauri GitHub Action](https://github.com/tauri-apps/tauri-action)
 
 v2.0.1 起安装包使用全机安装，目标固定为 `Program Files\MoligodToolBox`。从 v2.0.0 迁移会创建新的全机安装，旧版每用户程序目录会保留。启动新版时请使用全机安装位置或相应快捷方式。同一 Windows 账号的任务和配置仍从原数据目录读取。
 
@@ -63,7 +63,11 @@ v2.0.1 起安装包使用全机安装，目标固定为 `Program Files\MoligodTo
 
 ## 当前验证边界
 
-v2.0.1 已发布为 Latest。Windows runner 实际安装了两个版本，验证了全机安装迁移、保留旧任务和桌面启动。公开更新清单、下载地址及四个附件 SHA-256 均已核对。[v2.0.1](https://github.com/moligod/MoligodToolBox/releases/tag/v2.0.1) · [Windows 升级测试](https://github.com/moligod/MoligodToolBox/actions/runs/44758544876)
+v2.0.2 已在 GitHub 与国内下载源发布。独立 Windows 环境实装 v2.0.1，升级后验证了任务保留、桌面窗口、安装权限和增量更新基准。公网续传签名安装包通过。[v2.0.2 Release](https://github.com/moligod/MoligodToolBox/releases/tag/v2.0.2) · [Windows 升级验收](https://github.com/moligod/MoligodToolBox/actions/runs/44979917982)
+
+## v2.0.1 历史验证
+
+v2.0.1 发布时标记为 Latest。Windows runner 实际安装了两个版本，验证了全机安装迁移、保留旧任务和桌面启动。公开更新清单、下载地址及四个附件 SHA-256 均已核对。[v2.0.1](https://github.com/moligod/MoligodToolBox/releases/tag/v2.0.1) · [Windows 升级测试](https://github.com/moligod/MoligodToolBox/actions/runs/44758544876)
 
 ## v2.0.0 历史验证
 
